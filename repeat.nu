@@ -7,12 +7,12 @@ let strategies = ["status_quo",
                                 "AL25-ASAQ75",
                                 "AL50-ASAQ50",
                                 "AL75-ASAQ25",
-                                "AL25-DHA-PPQ75",
-                                "AL50-DHA-PPQ50",
-                                "AL75-DHA-PPQ25",
-                                "ASAQ25-DHA-PPQ75",
-                                "ASAQ50-DHA-PPQ50",
-                                "ASAQ75-DHA-PPQ25",];
+                                "AL25-DHAPPQ75",
+                                "AL50-DHAPPQ50",
+                                "AL75-DHAPPQ25",
+                                "ASAQ25-DHAPPQ75",
+                                "ASAQ50-DHAPPQ50",
+                                "ASAQ75-DHAPPQ25",];
 
 # Estimate memory constraints (Adjust these based on your system)
 let cores = sys cpu | length;
