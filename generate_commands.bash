@@ -45,7 +45,7 @@ num_runs=$3
 commands_file=$(basename $input_file .yml)_${num_runs}reps.txt
 # Generate the commands.txt file
 for i in $(seq 1 $num_runs); do
-    echo "./bin/MaSim -i $input_file -o $output_folder/run_$i.db -r SQLiteDistrictReporter"
+    echo "./bin/MaSim -i $input_file -o $output_folder/run_$i_ -r SQLiteDistrictReporter"
 done > $commands_file
 # Create the job script
 job_script=$(basename $input_file .yml)_${num_runs}reps_job.sh
