@@ -32,9 +32,9 @@ def generate_commands(
         os.remove(commands_filename)
     with open(commands_filename, "w") as f:
         for i in range(repetitions):
-            output_file = os.path.join(output_directory, f"{strategy_name}_{i}.csv")
+            output_file = os.path.join(output_directory, f"{strategy_name}_{i}")
             f.write(
-                f"./bin/MaSim -i {input_configuration_file} -o {output_file}/run_{i}_ -r SQLiteDistrictReporter\n"
+                f"./bin/MaSim -i {input_configuration_file} -o {output_file}_run_{i}_ -r SQLiteDistrictReporter\n"
             )
     # Generate the job file
     job_filename = f"{strategy_name}_{repetitions}reps.sh"
