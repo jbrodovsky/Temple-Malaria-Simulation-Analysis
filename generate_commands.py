@@ -3,7 +3,6 @@ Generate commands for MaSim
 """
 
 import os
-import sys
 import argparse
 
 
