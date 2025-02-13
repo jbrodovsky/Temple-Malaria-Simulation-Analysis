@@ -41,13 +41,13 @@ def generate_commands(
     if os.path.exists(job_filename):
         os.remove(job_filename)
     with open(job_filename, "w") as f:
-        f.write("#!/bin/sh")
-        f.write("#PBS -l walltime=48:00:00")
-        f.write("#PBS -N $(basename $input_file .yml)_${num_runs}reps")
-        f.write("#PBS -q normal")
-        f.write("#PBS -l nodes=1:ppn=28")
-        f.write("cd $PBS_O_WORKDIR")
-        f.write("torque-launch $commands_file")
+        f.write("#!/bin/sh\n")
+        f.write("#PBS -l walltime=48:00:00\n")
+        f.write("#PBS -N $(basename $input_file .yml)_${num_runs}reps\n")
+        f.write("#PBS -q normal\n")
+        f.write("#PBS -l nodes=1:ppn=28\n")
+        f.write("cd $PBS_O_WORKDIR\n")
+        f.write("torque-launch $commands_file\n")
     # Display the commands file
     print("Job file and commands file generated for $input_file with $num_runs runs.")
     print(f"Commands file: {commands_filename}")
