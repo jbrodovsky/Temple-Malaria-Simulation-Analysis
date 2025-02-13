@@ -90,6 +90,7 @@ def batch_generate_command_jobs(
     run_jobs = input("Would you like to run the jobs? (y/n): ")
     if run_jobs.lower() == "y" or run_jobs.lower() == "yes":
         for job in jobs:
+            print(f"{job}\n")
             os.system(job)
 
 
