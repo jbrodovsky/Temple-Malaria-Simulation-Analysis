@@ -37,7 +37,7 @@ def generate_commands(
                 f"./bin/MaSim -i {input_configuration_file} -o {output_file}/run_{i}_ -r SQLiteDistrictReporter\n"
             )
     # Generate the job file
-    job_filename = f"{strategy_name}_{repetitions}reps.job"
+    job_filename = f"{strategy_name}_{repetitions}reps.sh"
     if os.path.exists(job_filename):
         os.remove(job_filename)
     with open(job_filename, "w") as f:
