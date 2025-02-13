@@ -64,17 +64,17 @@ artificial_rescaling_of_population_size: 0.25
 # ---------------------------------------------------------------
 raster_db:
   # Adjusted population to account for burn-in up to 2009 start 
-  population_raster: "./data/rwa_init_pop.asc"
+  population_raster: "./data/rwa/rwa_init_pop.asc"
     
   # Raster files defining the country
-  district_raster: "./data/rwa_district.asc"
+  district_raster: "./data/rwa/rwa_district.asc"
   
   # Raster files defining treatments
-  pr_treatment_under5: "./data/rwa_treatment.asc"
-  pr_treatment_over5: "./data/rwa_treatment.asc" 
+  pr_treatment_under5: "./data/rwa/rwa_treatment.asc"
+  pr_treatment_over5: "./data/rwa/rwa_treatment.asc" 
 
   # Raster file containing the calibrated beta value
-  beta_raster: "./data/rwa_beta.asc"
+  beta_raster: "./data/rwa/rwa_beta.asc"
   
   # Set the cell size used by raster, in sq.km
   cell_size: 5
@@ -95,7 +95,7 @@ seasonal_info:
   enable: true
   mode: rainfall
   rainfall:
-    filename: "./data/rwa_adjustment.csv"
+    filename: "./data/rwa/rwa_adjustment.csv"
     period: 365
 
 # Country specific movement model and calibration  
@@ -230,7 +230,7 @@ events:
   - name: update_beta_raster_event
     info: 
       - day: 2021/01/01
-        beta_raster: "./data/rwa_beta_incidence.asc"
+        beta_raster: "./data/rwa/rwa_beta_incidence.asc"
   # ---------------------------------------------------------------
   # I think this is where we specify the interventions that we want to use.
   # ---------------------------------------------------------------
