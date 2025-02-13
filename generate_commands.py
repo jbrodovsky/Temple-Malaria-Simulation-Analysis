@@ -47,7 +47,7 @@ def generate_commands(
         f.write("#PBS -q normal\n")
         f.write("#PBS -l nodes=1:ppn=28\n")
         f.write("cd $PBS_O_WORKDIR\n")
-        f.write("torque-launch $commands_file\n")
+        f.write(f"torque-launch {commands_filename}\n")
     # Display the commands file
     print("Job file and commands file generated for $input_file with $num_runs runs.")
     print(f"Commands file: {commands_filename}")
