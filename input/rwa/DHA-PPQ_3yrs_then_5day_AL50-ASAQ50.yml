@@ -244,7 +244,11 @@ events:
   - name: begin_intervention
     info:
       - day: 2025/1/1
-      - strategy_ids: [12]
+      - strategy_ids: [4]
+  - name: second_intervention
+    info:
+      - day: 2028/1/1
+      - strategy_ids: [14]
 
 # Drug Information
 #
@@ -518,6 +522,11 @@ strategy_db:
     type: MFT
     therapy_ids: [6, 3]
     distribution: [0.75, 0.25]
+  14: 
+    name: 5day-AL50-ASAQ50
+    type: MFT
+    therapy_ids: [5, 6]
+    distribution: [0.5, 0.5]
     
   # 1:
   #   name: Rwanda-District-First
