@@ -435,6 +435,12 @@ therapy_db:
   6: 
     drug_id: [0, 4]
     dosing_days: [3]
+   # ALAQ - triple therapy
+  7: 
+    drug_id: [0, 1, 4]
+    dosing_days: [3]
+  # ASMQ-PPQ - artemisinin mefloquin ppq
+#    drug_id: [0, ]
 
 ###
 # Ok, so there is also some sort of weird parsing error here sometimes.... the above formatting for drug_db works

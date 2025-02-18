@@ -244,7 +244,11 @@ events:
   - name: begin_intervention
     info:
       - day: 2025/1/1
-      - strategy_ids: [12]
+      - strategy_ids: [4]
+  - name: second_intervention
+    info:
+      - day: 2028/1/1
+      - strategy_ids: [6]
 
 # Drug Information
 #
