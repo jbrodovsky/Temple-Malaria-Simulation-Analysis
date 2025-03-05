@@ -3,9 +3,9 @@ name = "masim-analysis"
 version = "0.1.0"
 description = "Anaylsis tools for the Temple malaria simulation model"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
-    "jupyter>=1.1.1",
-    "matplotlib>=3.10.0",
-    "pandas>=2.2.3",
+    "jupyter",
+    "matplotlib",
+    "pandas",
 ]
