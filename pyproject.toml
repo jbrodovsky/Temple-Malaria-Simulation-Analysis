@@ -1,5 +1,5 @@
 [project]
-name = "temple-malaria-simulation-analysis"
+name = "masim-analysis"
 version = "0.1.0"
 description = "Anaylsis tools for the Temple malaria simulation model"
 readme = "README.md"
