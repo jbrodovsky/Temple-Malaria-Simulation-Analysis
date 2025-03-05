@@ -2,3 +2,4 @@
 *.db
 *.png
 *.db-journal
+masim_analysis/__pycache__
