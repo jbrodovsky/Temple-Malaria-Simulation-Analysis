@@ -9,11 +9,11 @@ import os
 NODE_MEMORY = 128  # GB
 NODE_CORES = 28  # Cores
 JOB_MEMORY = 8  # GB
-MAX_CORES_PER_NODE = floor(NODE_MEMORY / JOB_MEMORY)  # Cores
+MAX_CORES_PER_NODE = floor(NODE_MEMORY / JOB_MEMORY) - 1  # Cores
 TIME_PER_JOB = 5  # Hour
 MAX_WALL_TIME = 48  # Hour
 JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
-# Use the -j flag to specify the number of jobs to run
+# Use the -j flag to specify the number of jobs to run <-- DON'T THIS THIS ACTUALLY WORKS
 # Multiprocessing notes:
 # - We can specify the number of repetitions for each strategy using the -j flag
 # - Previous implementation seems to have caused the cluster to run out of memory
@@ -31,10 +31,7 @@ JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
 
 
 def generate_commands(
-    input_configuration_file: str,
-    output_directory: str,
-    repetitions: int = 1,
-    in_parallel: bool = False,
+    input_configuration_file: str, output_directory: str, repetitions: int = 1
 ) -> tuple[str, list[str]]:
     """
     Generate commands for MaSim
@@ -60,14 +57,10 @@ def generate_commands(
     commands = []
     # with open(commands_filename, "w") as f:
     output_file = os.path.join(output_directory, f"{strategy_name}")
-    if in_parallel:
-        for i in range(repetitions):
-            commands.append(
-                f"./bin/MaSim -i {input_configuration_file} -o {output_file}_run_{i}_ -r SQLiteDistrictReporter\n"
-            )
-    else:
+
+    for i in range(repetitions):
         commands.append(
-            f"./bin/MaSim -i {input_configuration_file} -o {output_file}_ -r SQLiteDistrictReporter -j {repetitions}\n"
+            f"./bin/MaSim -i {input_configuration_file} -o {output_file}_ -r SQLiteDistrictReporter -j {i}\n"
         )
     return commands_filename, commands
 
@@ -154,13 +147,7 @@ if __name__ == "__main__":
         default=1,
         help="The number of repetitions to run for each strategy specified by the input configuration file",
     )
-    parser.add_argument(
-        "-p",
-        "--parallel",
-        action="store_true",
-        default=False,
-        help="Run the jobs in parallel",
-    )
+
     args = parser.parse_args()
     # generate_commands(args.input, args.output, args.repetitions)
     if os.path.isdir(args.input):
@@ -170,7 +157,7 @@ if __name__ == "__main__":
         filename = "batch_commands.txt"
     else:
         filename, commands = generate_commands(
-            args.input, args.output, args.repetitions, args.parallel
+            args.input, args.output, args.repetitions
         )
     with open(filename, "w") as f:
         for command in commands:
