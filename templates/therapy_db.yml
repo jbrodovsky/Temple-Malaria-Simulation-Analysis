@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------
+# Therapy Database
+# ---------------------------------------------------------------
+# drug_id 
+#   The ids from drug_db that make up the therapy
+# dosing_days 
+#   The number of days for which the therapy is prescribed 
+# ---------------------------------------------------------------
+# ACT - artesunate–amodiaquine (ASAQ)
+0:
+  drug_id: [0, 1]
+  dosing_days: [3] 
+# ACT - artemether–lumefantrine (AL) 
+1:
+  drug_id: [0, 4]
+  dosing_days: [3]
+# ACT - artesunate-mefloquine (ASMQ)
+2:
+  drug_id: [0, 6]
+  dosing_days: [3]
+# ACT - Dihydroartemisinin-piperaquine (DP)
+3:
+  drug_id: [0, 5]
+  dosing_days: [3]
+# MONO - Amodiaquine (ADQ)
+4:
+  drug_id: [1]
+  dosing_days: [3]
+# MONO - Artesunate (AS)
+5:
+  drug_id: [0]
+  dosing_days: [3]
+# MONO - Chloroquine (CQ)
+6:
+  drug_id: [3]
+  dosing_days: [3]
+# MONO - Quinine (QUIN)
+7:
+  drug_id: [7]
+  dosing_days: [7]
+# COMBINATION - Sulfadoxine/pyrimethamine (SP)
+8:
+  drug_id: [2]
+  dosing_days: [3]

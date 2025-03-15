@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------
+# Rasters to be used in conjunction with the location_db, note 
+# that the paths are relative to the binary file for the simulation
+# ---------------------------------------------------------------
+# Raster file that contains the site specific population data
+population_raster: "#POPULATION#.asc"
+# Raster file that points at which climate zone to use
+ecoclimatic_raster: "#ZONE#.asc"
+# transmission intensity
+beta_by_location: [$BETA$]  
+# Set the cell size used by raster, in sq.km
+cell_size: 5
+# Approximate national age distribution for Burkina Faso
+age_distribution_by_location: [[0.0449, 0.0449, 0.0449, 0.0449, 0.0315, 0.0315, 0.0315, 0.0315, 0.0315, 0.0268, 0.0268, 0.0268, 0.0268, 0.0268, 0.1990, 0.1251, 0.0855, 0.0560, 0.0346, 0.0289, 0.0000]]
+# probability that a symptomatic and infected individual seeks and receives antimalarial treatment
+#if the number of values less than number of locations, the first value will be applied for all locations
+# this is the initial value, the modification values can be change by setting in events node
+p_treatment_for_less_than_5_by_location: [$ACCESSU5$]
+p_treatment_for_more_than_5_by_location: [$ACCESSO5$]
