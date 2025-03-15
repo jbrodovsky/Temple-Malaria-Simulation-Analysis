@@ -8,28 +8,8 @@ from ruamel.yaml import YAML
 yaml = YAML()
 
 # Calibration parameters
-populations = [10, 25, 50, 75, 100, 200, 500, 1000, 2000, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 100000]
-access_rates = [
-    0.001,
-    0.005,
-    0.01,
-    0.0125,
-    0.015,
-    0.02,
-    0.03,
-    0.04,
-    0.05,
-    0.1,
-    0.15,
-    0.2,
-    0.25,
-    0.3,
-    0.4,
-    0.5,
-    0.6,
-    0.8,
-    1,
-]
+populations = [10, 25, 50]
+access_rates = [0.001, 0.005, 0.01]
 betas = [0.55, 0.65, 0.75, 0.85]
 # Input parameters
 name = "moz"
