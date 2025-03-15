@@ -24,7 +24,7 @@ The structure of this repository is intended such that the simulation is called 
 The simulation can be run locally with the following command:
 
 ```shell
-./bin/MaSim -i ./input/<input_file>.yml -o ./output/<output_folder> -r SQLiteDistrictReporter
+./bin/MaSim -i ./conf/<input_file>.yml -o ./output/<output_folder> -r SQLiteDistrictReporter
 ```
 
 The MaSim simulation needs a input `.yml` file that describes the simulation parameters and events. The simulation binary itself cannot run multiple strategies in parallel or multiple repetitions of the same strategy. The simulation will run through one sequence of events (which may or may not contain multiple strategies) and then stop.
