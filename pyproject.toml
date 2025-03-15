@@ -3,9 +3,29 @@ name = "masim-analysis"
 version = "0.1.0"
 description = "Anaylsis tools for the Temple malaria simulation model"
 readme = "README.md"
-requires-python = ">=3.12"
+authors = [
+    { name = "James Brodovsky", email = "jbrodovsky@temple.edu" }
+]
+requires-python = ">=3.9"
 dependencies = [
     "jupyter",
     "matplotlib",
+    "numpy",
     "pandas",
+    "ruamel-yaml>=0.18.10",
+    "sqlalchemy>=2.0.39",
 ]
+[project.scripts]
+analysis = "masim_analysis:main"
+generate-commands = "masim_analysis.commands:main"
+configure = "masim_analysis.configure:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling]
+include = ["templates"]
+
+[tool.ruff]
+line-length = 120
