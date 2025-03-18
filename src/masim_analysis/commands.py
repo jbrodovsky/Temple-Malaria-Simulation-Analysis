@@ -49,7 +49,7 @@ def generate_commands(
         os.makedirs(output_directory)
 
     # Parse the strategy name
-    strategy_name = os.path.basename(input_configuration_file).split(".")[0]
+    strategy_name = os.path.basename(input_configuration_file).split(".yml")[0]
     commands_filename = f"{strategy_name}_{repetitions}reps.txt"
     if os.path.exists(commands_filename):
         os.remove(commands_filename)
