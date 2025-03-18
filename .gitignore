@@ -3,5 +3,4 @@
 *.png
 *.db-journal
 *.pyc
-masim_analysis/__pycache__
-src/masim_analysis/__pycache__/
+src/masim_analysis/__pycache__
