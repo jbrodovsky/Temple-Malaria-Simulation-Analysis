@@ -186,8 +186,8 @@ def validate_raster_files(
         raster_db = {
             "population_raster": os.path.join(data_root, f"{name}_population.asc"),
             "district_raster": os.path.join(data_root, f"{name}_district.asc"),
-            "pr_treatment_under5": os.path.join(data_root, f"{name}_pr_treatment_under5.asc"),
-            "pr_treatment_over5": os.path.join(data_root, f"{name}_pr_treatment_over5.asc"),
+            "pr_treatment_under5": os.path.join(data_root, f"{name}_treatmentseeking.asc"),
+            "pr_treatment_over5": os.path.join(data_root, f"{name}_treatmentseeking.asc"),
             "beta_raster": os.path.join(data_root, f"{name}_beta.asc"),
             "cell_size": 5,
             "age_distribution_by_location": [age_distribution],
@@ -209,7 +209,7 @@ def validate_raster_files(
             with open(raster_db["population_raster"], "w") as file:
                 file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value -9999\n{population}")
             with open(raster_db["district_raster"], "w") as file:
-                file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value -9999\n1")
+                file.write("ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value -9999\n1")
 
     return raster_db
 
@@ -250,19 +250,17 @@ def main(
     execution_control["ending_date"] = end_date
     execution_control["start_collect_data_day"] = start_collecting_day
     execution_control["birth_rate"] = birth_rate
-    execution_control["death_rate"] = death_rate
+    execution_control["death_rate_by_age_class"] = death_rate
     execution_control["seasonal_info"] = SEASONAL_MODEL
     execution_control["spatial_model"] = create_spatial_model(calibration)
-    # I think there needs to be a conditional here for calibration mode
     execution_control["raster_db"] = validate_raster_files(name, calibration, strategy)
-    ######
     execution_control["drug_db"] = load_yaml("templates/drug_db.yml")
     execution_control["therapy_db"] = load_yaml("templates/therapy_db.yml")
     execution_control["genotype_info"] = load_yaml("templates/genotype_info.yml")
     if calibration:
         execution_control["events"] = [
             {"name": "turn_off_mutation", "info": {"day": start_date}},
-            {"name": "begin_intervention", "info": {"day": start_date, "strategy_ids": [0]}},
+            # {"name": "begin_intervention", "info": {"day": start_date, "strategy_ids": [0]}},
         ]
         output_path = os.path.join("conf", name, "calibration", f"{strategy}.yml")
     else:

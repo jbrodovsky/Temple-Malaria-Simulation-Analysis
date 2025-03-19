@@ -194,3 +194,17 @@ tf_testing_day: 28
 # TODO - What's this do?
 inflation_factor: 0.01
 # ---------------------------------------------------------------
+# --- DISABLED FEATURES ---
+
+# special function to make the mean biting rate (across hosts) depend on age
+using_age_dependent_bitting_level: false
+
+# special function which makes the probability of an infection (resulting 
+# from an infectious mosquito bite) age-dependent
+using_variable_probability_infectious_bites_cause_infection: false
+
+# Settings for MDAs - NOT USED
+mda_therapy_id: 8
+age_bracket_prob_individual_present_at_mda: [10, 40]
+mean_prob_individual_present_at_mda: [0.85, 0.75, 0.85]
+sd_prob_individual_present_at_mda: [0.3, 0.3, 0.3]
