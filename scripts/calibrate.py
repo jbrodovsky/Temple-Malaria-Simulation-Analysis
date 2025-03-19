@@ -10,7 +10,7 @@ yaml = YAML()
 # Calibration parameters
 populations = [10, 25, 50]
 access_rates = [0.001, 0.005, 0.01]
-betas = [0.55, 0.65, 0.75, 0.85]
+betas = [0.55, 0.65, 0.75]
 # Input parameters
 name = "moz"
 start = date(2000, 1, 1)
@@ -57,6 +57,7 @@ execution_control["initial_strategy_id"] = 0
 execution_control["events"] = [
     {"name": "turn_off_mutation", "info": [{"day": start.strftime("%Y/%m/%d")}]},
 ]
+
 for pop in populations:
     for access in access_rates:
         for beta in betas:
