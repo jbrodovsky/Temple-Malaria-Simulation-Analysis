@@ -1,7 +1,7 @@
 #!/bin/sh
 #PBS -l walltime=48:00:00
-#PBS -N moz_7500_jobs.sh
+#PBS -N moz_750_jobs
 #PBS -q normal
 #PBS -l nodes=29:ppn=15
 cd $PBS_O_WORKDIR
-torque-launch moz_7500_cmds.txt
+torque-launch moz_750_cmds.txt
