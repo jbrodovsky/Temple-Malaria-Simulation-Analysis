@@ -94,7 +94,10 @@ def batch_generate_command_jobs(
     return commands
 
 
-def generate_job_file(num_commands: int, commands_filename: str, job_name: str = "MyJob"):
+def generate_job_file(commands_filename: str, job_name: str = "MyJob"):
+    # Get the number of lines in commands_filename
+    with open(commands_filename, "r") as f:
+        num_commands = sum(1 for _ in f)
     # Generate the job file
     job_filename = f"{job_name}.sh"
     if os.path.exists(job_filename):
@@ -108,9 +111,7 @@ def generate_job_file(num_commands: int, commands_filename: str, job_name: str =
         f.write("#PBS -l walltime=48:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
         f.write("#PBS -q normal\n")
-        f.write(
-            f"#PBS -l nodes={needed_nodes}:ppn={MAX_CORES_PER_NODE}\n"
-        )  # <-- Change this to the number of nodes and cores
+        f.write(f"#PBS -l nodes={needed_nodes}:ppn={MAX_CORES_PER_NODE}\n")
         f.write("cd $PBS_O_WORKDIR\n")
         f.write(f"torque-launch {commands_filename}\n")
     # Display the commands file
@@ -143,6 +144,13 @@ def main() -> None:
         default=1,
         help="The number of repetitions to run for each strategy specified by the input configuration file",
     )
+    parser.add_argument(
+        "-n",
+        "--name",
+        type=str,
+        default="MyJob",
+        help="The name of the job to submit to the cluster (default: MyJob)",
+    )
 
     args = parser.parse_args()
     # generate_commands(args.input, args.output, args.repetitions)
@@ -154,7 +162,7 @@ def main() -> None:
     with open(filename, "w") as f:
         for command in commands:
             f.write(command)
-    generate_job_file(len(commands), filename)
+    generate_job_file(filename, args.name)
 
 
 if __name__ == "__main__":
