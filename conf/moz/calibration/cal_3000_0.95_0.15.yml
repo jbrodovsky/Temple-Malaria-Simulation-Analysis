@@ -192,3 +192,512 @@ relapse_duration: 30
 # relapse rate - used to increase the parasite density after a treatment failure (at the drug clearance day)
 # multiply by sqrt(20) per day
 relapseRate: 4.4721
+# minimum update frequency for a host's attributes (esp. parasite density) is every 7 days, or
+# more frequently if other events are occurring at this time
+update_frequency: 7
+# if an infected and asymptomatic host is bitten and infected by a new 
+# parasite clone, this setting allows the new infection to cause symptoms
+allow_new_coinfection_to_cause_symtoms: true
+# free recombination among the drug resistance loci
+using_free_recombination: true
+# the current treatment failure rate as observed in the population is not really
+# today's treatment failure rate, as these data are never assembled that quickly in
+# real life; rather, it is the average treatment failure rate observed over the 
+# past 60 days
+tf_window_size: 60
+# Mosquitoes always finish their blood meal
+fraction_mosquitoes_interrupted_feeding: 0.0
+# Follow-up point at which it is determined if treatment failed or not
+tf_testing_day: 28
+# TODO - What's this do?
+inflation_factor: 0.01
+# ---------------------------------------------------------------
+# --- DISABLED FEATURES ---
+
+# special function to make the mean biting rate (across hosts) depend on age
+using_age_dependent_bitting_level: false
+
+# special function which makes the probability of an infection (resulting 
+# from an infectious mosquito bite) age-dependent
+using_variable_probability_infectious_bites_cause_infection: false
+
+# Settings for MDAs - NOT USED
+mda_therapy_id: 8
+age_bracket_prob_individual_present_at_mda: [10, 40]
+mean_prob_individual_present_at_mda: [0.85, 0.75, 0.85]
+sd_prob_individual_present_at_mda: [0.3, 0.3, 0.3]
+seasonal_info:
+  enable: false
+spatial_model:
+  name: Wesolowski
+  Wesolowski:
+    kappa: 0
+    alpha: 0
+    beta: 0
+    gamma: 0
+raster_db:
+  population_raster: data/moz/calibration/moz_3000_0.95_0.15_population.asc
+  district_raster: data/moz/calibration/moz_3000_0.95_0.15_district.asc
+  cell_size: 5
+  age_distribution_by_location:
+  - &id001
+    - 0.037
+    - 0.132
+    - 0.161
+    - 0.142
+    - 0.09
+    - 0.086
+    - 0.07
+    - 0.052
+    - 0.044
+    - 0.044
+    - 0.031
+    - 0.041
+    - 0.024
+    - 0.017
+    - 0.013
+    - 0.017
+  p_treatment_for_less_than_5_by_location:
+  - 0.95
+  p_treatment_for_more_than_5_by_location:
+  - 0.95
+  beta_by_location:
+  - 0.15
+drug_db:
+# ---------------------------------------------------------------
+# Drug Information
+# ---------------------------------------------------------------
+# maximum_parasite_killing_rate: 
+#   e.g. 0.999 means the drug can kill 99.9% of parasites in 1 day if a person has 
+#   the highest possible drug concentration
+#
+# n: 
+#   the slope of the linear portion of the concentration-effect curve
+#
+# EC50: 
+#   the drug concentration which produces 50% of the parasite killing achieved at maximum-concentration
+#   ( the expected starting concentration is 1.0 )
+#
+# age_specific_drug_concentration_sd: 
+#   the actual drug concentration, per individual, will be drawn from a normal distribution with mean=1 and this sd.
+#
+# k: 
+#   parameter that describes the change in the mutation probability when drug levels are intermediate
+#   - set k=0.5 for a simple linear model where mutation probability decreases linearly with drug concentration
+#   - set k=2 or k=4 for a piecewise-linear model where mutation probability increases from high concentrations
+#           to intermediate concentrations, and then decreases linearly from intermediate concentrations to zero
+# ---------------------------------------------------------------
+# Artemisinin
+  0:
+    name: ART
+    half_life: 0.0
+    maximum_parasite_killing_rate: 0.999
+    n: 25
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [2]
+    selecting_alleles: [[1]]
+    k: 4
+    EC50:
+      ..0..: 0.75
+      ..1..: 1.2
+# Amodiaquine
+  1:
+    name: ADQ
+    half_life: 9.0
+    maximum_parasite_killing_rate: 0.95
+    n: 19
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [0, 1]
+    selecting_alleles: [[1], [0, 1, 3, 4, 5, 7]]
+    k: 4
+    EC50:
+    #KNY--
+      00...: 0.62
+    #KYY--
+      01...: 0.85
+    #KNF--
+      02...: 0.5
+    #KYF--
+      03...: 0.775
+    #KNYNY
+      04...: 0.62
+    #KYYYY
+      05...: 0.85
+    #KNFNF
+      06...: 0.5
+    #KYFYF
+      07...: 0.775
+    #TNY--
+      10...: 0.7
+    #TYY--
+      11...: 0.9
+    #TNF--
+      12...: 0.65
+    #TYF--
+      13...: 0.82
+    #TNYNY
+      14...: 0.7
+    #TYYYY
+      15...: 0.9
+    #TNFNF
+      16...: 0.65
+    #TYFYF
+      17...: 0.82
+# Sulfadoxine/pyrimethamine
+  2:
+    name: SP
+    half_life: 6.5
+    maximum_parasite_killing_rate: 0.9
+    n: 15
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.000
+    affecting_loci: []
+    selecting_alleles: []
+    k: 4
+    EC50:
+      '.....': 1.08
+# Chloroquine
+  3:
+    name: CQ
+    half_life: 10
+    maximum_parasite_killing_rate: 0.95
+    n: 19
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [0, 1]
+    selecting_alleles: [[1], [1, 3, 5, 7]]
+    k: 4
+    EC50:
+    #KNY--
+      00...: 0.72
+    #KYY--
+      01...: 0.9
+    #KNF--
+      02...: 0.72
+    #KYF--
+      03...: 0.9
+    #KNYNY
+      04...: 0.72
+    #KYYYY
+      05...: 0.9
+    #KNFNF
+      06...: 0.72
+    #KYFYF
+      07...: 0.9
+    #TNY--
+      10...: 1.19
+    #TYY--
+      11...: 1.35
+    #TNF--
+      12...: 1.19
+    #TYF--
+      13...: 1.35
+    #TNYNY
+      14...: 1.19
+    #TYYYY
+      15...: 1.35
+    #TNFNF
+      16...: 1.19
+    #TYFYF
+      17...: 1.35
+# Lumefantrine
+  4:
+    name: LUM
+    half_life: 4.5
+    maximum_parasite_killing_rate: 0.99
+    n: 20
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [0, 1]
+    selecting_alleles: [[0], [0, 2, 3, 4, 6, 7]]
+    k: 4
+    EC50:
+    #KNY--
+      00...: 0.8
+    #KYY--
+      01...: 0.67
+    #KNF--
+      02...: 0.9
+    #KYF--
+      03...: 0.8
+    #KNYNY
+      04...: 1.0
+    #KYYYY
+      05...: 0.87
+    #KNFNF
+      06...: 1.1
+    #KYFYF
+      07...: 1.0
+    #TNY--
+      10...: 0.75
+    #TYY--
+      11...: 0.6
+    #TNF--
+      12...: 0.85
+    #TYF--
+      13...: 0.75
+    #TNYNY
+      14...: 0.95
+    #TYYNY
+      15...: 0.8
+    #TNFNF
+      16...: 1.05
+    #TYFYF
+      17...: 0.95
+# Piperaquine
+  5:
+    name: PQ
+    half_life: 28.0
+    maximum_parasite_killing_rate: 0.9
+    n: 15
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [3]
+    selecting_alleles: [[1]]
+    resistant_factor: [[1]]
+    k: 4
+    EC50:
+      '...0.': 0.58
+      '...1.': 1.4
+# Mefloquine
+  6:
+    name: MF
+    half_life: 21.0
+    maximum_parasite_killing_rate: 0.9
+    n: 15
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.005
+    affecting_loci: [1]
+    selecting_alleles: [[4, 5, 6, 7]]
+    k: 4
+    EC50:
+      .0...: 0.45
+      .1...: 0.45
+      .2...: 0.45
+      .3...: 0.45
+      .4...: 1.1
+      .5...: 1.1
+      .6...: 1.1
+      .7...: 1.1
+# Quinine
+  7:
+    name: QUIN
+    half_life: 18
+    maximum_parasite_killing_rate: 0.9
+    n: 3
+    age_specific_drug_concentration_sd: [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4,
+      0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
+    mutation_probability: 0.0
+    affecting_loci: []
+    selecting_alleles: []
+    k: 4
+    EC50:
+    # K----
+      0....: 1.41
+    # T----
+      1....: 1.41
+therapy_db:
+# ---------------------------------------------------------------
+# Therapy Database
+# ---------------------------------------------------------------
+# drug_id 
+#   The ids from drug_db that make up the therapy
+# dosing_days 
+#   The number of days for which the therapy is prescribed 
+# ---------------------------------------------------------------
+# ACT - artesunate–amodiaquine (ASAQ)
+  0:
+    drug_id: [0, 1]
+    dosing_days: [3]
+# ACT - artemether–lumefantrine (AL) 
+  1:
+    drug_id: [0, 4]
+    dosing_days: [3]
+# ACT - artesunate-mefloquine (ASMQ)
+  2:
+    drug_id: [0, 6]
+    dosing_days: [3]
+# ACT - Dihydroartemisinin-piperaquine (DP)
+  3:
+    drug_id: [0, 5]
+    dosing_days: [3]
+# MONO - Amodiaquine (ADQ)
+  4:
+    drug_id: [1]
+    dosing_days: [3]
+# MONO - Artesunate (AS)
+  5:
+    drug_id: [0]
+    dosing_days: [3]
+# MONO - Chloroquine (CQ)
+  6:
+    drug_id: [3]
+    dosing_days: [3]
+# MONO - Quinine (QUIN)
+  7:
+    drug_id: [7]
+    dosing_days: [7]
+# COMBINATION - Sulfadoxine/pyrimethamine (SP)
+  8:
+    drug_id: [2]
+    dosing_days: [3]
+genotype_info:
+# ---------------------------------------------------------------
+# Genotype information
+# Define locations of drug resistant genes
+# ---------------------------------------------------------------
+  loci:
+  # pfcrt
+  - locus_name: pfcrt
+    position: 0
+    alleles:
+    - value: 0
+      allele_name: K76
+      short_name: K
+      can_mutate_to: [1]
+      mutation_level: 0
+      daily_cost_of_resistance: 0.0
+    - value: 1
+      allele_name: 76T
+      short_name: T
+      can_mutate_to: [0]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+  # pfmdr1
+  - locus_name: pfmdr1
+    position: 1
+    alleles:
+    - value: 0
+      allele_name: N86 Y184 one copy of pfmdr1
+      short_name: NY--
+      can_mutate_to: [1, 2, 4]
+      mutation_level: 0
+      daily_cost_of_resistance: 0.0
+    - value: 1
+      allele_name: 86Y Y184 one copy of pfmdr1
+      short_name: YY--
+      can_mutate_to: [3, 0, 5]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+    - value: 2
+      allele_name: N86 184F one copy of pfmdr1
+      short_name: NF--
+      can_mutate_to: [3, 0, 6]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+    - value: 3
+      allele_name: 86Y 184F one copy of pfmdr1
+      short_name: YF--
+      can_mutate_to: [1, 2, 7]
+      mutation_level: 2
+      daily_cost_of_resistance: 0.00099975
+    - value: 4
+      allele_name: N86 Y184 2 copies of pfmdr1
+      short_name: NYNY
+      can_mutate_to: [0]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.005
+    - value: 5
+      allele_name: 86Y Y184 2 copies of pfmdr1
+      short_name: YYYY
+      can_mutate_to: [1]
+      mutation_level: 2
+      daily_cost_of_resistance: 0.0055
+    - value: 6
+      allele_name: N86 184F 2 copies of pfmdr1
+      short_name: NFNF
+      can_mutate_to: [2]
+      mutation_level: 2
+      daily_cost_of_resistance: 0.0055
+    - value: 7
+      allele_name: 86Y 184F 2 copies of pfmdr1
+      short_name: YFYF
+      can_mutate_to: [3]
+      mutation_level: 3
+      daily_cost_of_resistance: 0.006
+  # K13 Propeller
+  - locus_name: K13 Propeller
+    position: 2
+    alleles:
+    - value: 0
+      allele_name: C580
+      short_name: C
+      can_mutate_to: [1]
+      mutation_level: 0
+      daily_cost_of_resistance: 0.0
+    - value: 1
+      allele_name: 580Y
+      short_name: Y
+      can_mutate_to: [0]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+  # Plasmepsin 2-3
+  - locus_name: Plasmepsin 2-3
+    position: 3
+    alleles:
+    - value: 0
+      allele_name: Plasmepsin 2-3 one copy
+      short_name: '1'
+      can_mutate_to: [1]
+      mutation_level: 0
+      daily_cost_of_resistance: 0.0
+    - value: 1
+      allele_name: Plasmepsin 2-3 2 copies
+      short_name: '2'
+      can_mutate_to: [0]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+  # Hypothetical
+  - locus_name: Hypothetical locus for multiple use
+    position: 4
+    alleles:
+    - value: 0
+      allele_name: naive
+      short_name: x
+      can_mutate_to: [1]
+      mutation_level: 0
+      daily_cost_of_resistance: 0.0
+    - value: 1
+      allele_name: mutant
+      short_name: X
+      can_mutate_to: [0]
+      mutation_level: 1
+      daily_cost_of_resistance: 0.0005
+events:
+- name: turn_off_mutation
+  info:
+  - day: 2011/01/01
+death_rate:
+- 0.049744
+- 0.064331
+- 0.064331
+- 0.064331
+- 0.064331
+- 0.00359
+- 0.00361
+- 0.00365
+- 0.00379
+- 0.00379
+- 0.133
+- 0.133
+- 0.0174
+- 0.0174
+age_distribution: *id001
+strategy_db:
+  0:
+    name: baseline
+    type: MFT
+    therapy_ids:
+    - 0
+    distribution:
+    - 1
+initial_strategy_id: 0
