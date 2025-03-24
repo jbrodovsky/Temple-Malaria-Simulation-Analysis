@@ -94,7 +94,9 @@ def batch_generate_command_jobs(
     return commands
 
 
-def generate_job_file(commands_filename: str, job_name: str = "MyJob"):
+def generate_job_file(
+    commands_filename: str, job_name: str = "MyJob", cores_override: int = None, nodes_override: int = None
+) -> None:
     # Get the number of lines in commands_filename
     with open(commands_filename, "r") as f:
         num_commands = sum(1 for _ in f)
@@ -104,14 +106,22 @@ def generate_job_file(commands_filename: str, job_name: str = "MyJob"):
         os.remove(job_filename)
 
     # Read the length of the commands file
-    needed_nodes = ceil(num_commands / JOBS_PER_NODE)
+    if (cores_override is not None and cores_override > 0 and cores_override <= 28) and (
+        nodes_override is not None and nodes_override > 0 and nodes_override <= 10
+    ):
+        # needed_nodes = ceil(num_commands / cores_override)
+        cores_requested = cores_override
+        needed_nodes = nodes_override
+    else:
+        needed_nodes = ceil(num_commands / JOBS_PER_NODE)
+        cores_requested = MAX_CORES_PER_NODE
 
     with open(job_filename, "w") as f:
         f.write("#!/bin/sh\n")
         f.write("#PBS -l walltime=48:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
         f.write("#PBS -q normal\n")
-        f.write(f"#PBS -l nodes={needed_nodes}:ppn={MAX_CORES_PER_NODE}\n")
+        f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
         f.write("cd $PBS_O_WORKDIR\n")
         f.write(f"torque-launch {commands_filename}\n")
     # Display the commands file
