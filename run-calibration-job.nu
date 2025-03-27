@@ -8,6 +8,7 @@
 # the "do" command. This is a bit cumbersome, but it is what it is. This script should
 # effectively recreate the functionality of both torque-launch and the "generate_commands"
 # section in the notebook (copied below for reference).
+use std/log
 
 let cores = sys cpu | length;
 let total_ram = sys mem | get total | into int | $in / (1024 * 1024 * 1024);  # Convert to GB
@@ -19,7 +20,7 @@ let betas = [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.1
 let reps = 20
 
 # create output directories
-mkdir ./output/($country_code)/calibration
+mkdir $"./output/($country_code)/calibration"
 
 let cmds = create_cmds $country_code $populations $access_rates $betas $reps
 
@@ -36,9 +37,8 @@ def create_cmds [country: string, populations: list<int>, access_rates: list<flo
             ($betas | each { |beta|
                 (1..$reps | each { |j|
                    {
-
-                    print $"Running ($country) calibration for ($pop) with access rate ($access) and beta ($beta) for repetition ($j)...";
-
+                    let print_str = $"Running ($country) calibration for ($pop) with access rate ($access) and beta ($beta) for repetition ($j)..."                    
+                    log info $print_str | save --append $"./output/($country)/calibration/calibration_log.txt" --progress                    
                     ./bin/MaSim -i ./conf/($country)/calibration/cal_($pop)_($access)_($beta).yml -o ./output/($country)/calibration/cal_($pop)_($access)_($beta)_ -r SQLiteDistrictReporter -j ($j);
                 }
                 })
