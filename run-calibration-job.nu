@@ -14,7 +14,7 @@ let cores = sys cpu | length;
 #let total_ram = sys mem | get total | into int | $in / (1024 * 1024 * 1024);  # Convert to GB
 # Input parameters
 let country_code = "moz" # (input "Country code (string): " --default "rwa")
-mut populations =  [10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 3000, 4000, 5000, 7500, 10000, 12500, 15000, 20000] # (input "List of population sizes (list<int>): " --default [10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 3000, 4000, 5000, 7500, 10000, 12500, 15000, 20000])
+mut populations =  [10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 3000, 4000] # (input "List of population sizes (list<int>): " --default [10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 3000, 4000, 5000, 7500, 10000, 12500, 15000, 20000])
 mut access_rates = [0.50, 0.55, 0.60, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95] # (input "Access rates (list<float>): " --default [0.50, 0.55, 0.60, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95])
 mut betas = [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0] # (input "Beta values (list<float>): " --default [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0])
 let reps = 20 # (input "Number of repetitions (int): " --default 10) | into int
