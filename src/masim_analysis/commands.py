@@ -65,7 +65,7 @@ def generate_commands(
 
 
 def batch_generate_command_jobs(
-    input_configuration_directory: list, output_directory: str, repetitions: int = 1
+    input_configuration_directory: list, output_directory: str, repetitions: int = 1,
 ) -> list[str]:
     """
     Batch generate commands for MaSim
