@@ -13,6 +13,8 @@ dependencies = [
     "numpy",
     "pandas",
     "ruamel-yaml>=0.18.10",
+    "scikit-learn>=1.6.1",
+    "scipy>=1.13.1",
     "seaborn>=0.13.2",
     "sqlalchemy>=2.0.39",
     "tqdm>=4.67.1",
