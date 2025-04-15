@@ -1,8 +1,9 @@
-import sqlite3
-import pandas as pd
-import matplotlib.pyplot as plt
-import os
 import glob
+import os
+import sqlite3
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 table_names = [
     "monthlydata",
