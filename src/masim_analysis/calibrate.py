@@ -75,6 +75,7 @@ def generate_configuration_files(
     execution_control["events"] = [
         {"name": "turn_off_mutation", "info": [{"day": start.strftime("%Y/%m/%d")}]},
     ]
+
     execution_control["seasonal_info"] = {
         "enable": True,
         "mode": "rainfall",
@@ -96,6 +97,7 @@ def generate_configuration_files(
                     beta=beta,
                     population=pop,
                 )
+
                 output_path = os.path.join("conf", country_code, "calibration", f"cal_{pop}_{access}_{beta}.yml")
                 yaml.dump(execution_control, open(output_path, "w"))
 

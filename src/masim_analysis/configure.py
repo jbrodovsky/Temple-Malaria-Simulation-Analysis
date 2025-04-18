@@ -8,7 +8,7 @@ from datetime import date
 
 from ruamel.yaml import YAML
 
-SEASONAL_MODEL = {"enable": False}
+SEASONAL_MODEL = {"enable": True}
 yaml = YAML()
 
 
