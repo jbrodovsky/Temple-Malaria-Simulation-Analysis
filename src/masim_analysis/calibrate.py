@@ -31,6 +31,7 @@ def generate_configuration_files(
     birth_rate: float,
     death_rate: list[float],
     age_distribution: list[float],
+    seasonality_file_name: str = "seasonality.csv",
 ) -> None:
     """
     Generate configuration files for the given country code and date range for calibration.
@@ -71,10 +72,17 @@ def generate_configuration_files(
         },
     }
     execution_control["initial_strategy_id"] = 0
-
     execution_control["events"] = [
         {"name": "turn_off_mutation", "info": [{"day": start.strftime("%Y/%m/%d")}]},
     ]
+    execution_control["seasonal_info"] = {
+        "enable": True,
+        "mode": "rainfall",
+        "rainfall": {
+            "filename": os.path.join("data", country_code, f"{country_code}_{seasonality_file_name}"),
+            "period": 365,
+        },
+    }
     # Generate the configuration files
     for pop in tqdm(population_bins):
         for access in access_rates:
