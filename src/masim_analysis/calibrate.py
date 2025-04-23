@@ -136,7 +136,7 @@ def summarize_calibration_results(
     comparison_year: int,
     output_dir: str,
     repetitions: int = 20,
-):
+) -> pd.DataFrame:
     base_file_path = os.path.join(output_dir, country_code, "calibration")
     summary = pd.DataFrame(
         columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
@@ -168,7 +168,8 @@ def summarize_calibration_results(
                     summary.loc[filename, "beta"] = beta
                     summary.loc[filename, "iteration"] = int(i)
 
-    summary.to_csv(f"{base_file_path}/calibration_summary.csv")
+    # summary.to_csv(f"{base_file_path}/calibration_summary.csv")
+    return summary
 
 
 def process_missing_jobs(
@@ -186,8 +187,8 @@ def process_missing_jobs(
     for pop in tqdm(population_bins):
         for access in access_rates:
             for beta in beta_values:
-                for i in range(1, repetitions + 1):
-                    filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
+                for i in range(repetitions):
+                    filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i + 1}"
                     file = os.path.join(base_file_path, f"{filename}.db")
                     try:
                         months = analysis.get_table(file, "monthlydata")
