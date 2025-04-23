@@ -127,7 +127,8 @@ def generate_command_and_job_files(
                         )
         commands.generate_job_file(
             os.path.join(os.path.join(output_dir, filename)),
-            f"{country_code}_{pop}_jobs",
+            job_dir="jobs",
+            job_name=f"{country_code}_{pop}_jobs",
             cores_override=cores,
             nodes_override=nodes,
         )
