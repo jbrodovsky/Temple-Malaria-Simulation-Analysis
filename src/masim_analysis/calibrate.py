@@ -252,6 +252,9 @@ def find_beta(pfpr_target, linear_model, popt, pfpr_cutoff):
 
     return beta_values
 
+def plot_log_sigmoid():
+    pass
+
 
 def log_sigmoid_fit(
     populations: list[int] | NDArray,

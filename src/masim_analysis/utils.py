@@ -1,7 +1,3 @@
-# Country calibration script
-import os
-from datetime import date
-
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
@@ -9,36 +5,52 @@ from matplotlib.patches import Patch
 from masim_analysis import configure
 
 
-def plot_districts(districts_raster: np.ndarray, labels: list[str], country_name: str) -> plt.Figure:
+def plot_districts(
+    districts_raster: np.ndarray,
+    labels: list[str],
+    country_name: str,
+    fig_size: tuple[int, int] = (10, 10),
+    loc=None,
+    bbox_to_anchor=(1.75, 1),
+) -> plt.Figure:
     """
     Plot the distict mapping of the country according to the raster array.
     """
     cmap = plt.get_cmap("tab20", len(labels))
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=fig_size)
     ax.imshow(districts_raster, cmap=cmap)
     ax.set_title(f"{country_name} Districts")
     # create legend handles
     handles = [Patch(color=cmap(i), label=labels[i + 1].replace("_", " ")) for i in range(11)]
-    ax.legend(bbox_to_anchor=(1.75, 1), handles=handles, title="Districts", loc="upper right")
+    ax.legend(
+        bbox_to_anchor=bbox_to_anchor,
+        handles=handles,
+        title="Districts",
+        loc=loc,
+    )
     return fig
 
 
-def plot_population(population_raster: np.ndarray, country_name: str) -> plt.Figure:
+def plot_population(
+    population_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)
+) -> plt.Figure:
     """
     Plot the population density of the country according to the raster array.
     """
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=fig_size)
     ax.imshow(population_raster, cmap="coolwarm")
     ax.set_title(f"{country_name} Population")
     fig.colorbar(plt.cm.ScalarMappable(cmap="coolwarm"), ax=ax, label="Population Density")
     return fig
 
 
-def plot_prevalence(prevalence_raster: np.ndarray, country_name: str) -> plt.Figure:
+def plot_prevalence(
+    prevalence_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)
+) -> plt.Figure:
     """
     Plot the prevalence of malaria according to the raster array.
     """
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=fig_size)
     ax.imshow(prevalence_raster, cmap="coolwarm")
     ax.set_title(f"{country_name} Prevalence")
     fig.colorbar(plt.cm.ScalarMappable(cmap="coolwarm"), ax=ax, label="Prevalence")
