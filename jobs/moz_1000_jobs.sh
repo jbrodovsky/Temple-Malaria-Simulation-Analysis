@@ -2,6 +2,6 @@
 #PBS -l walltime=48:00:00
 #PBS -N moz_1000_jobs
 #PBS -q normal
-#PBS -l nodes=8:ppn=28
+#PBS -l nodes=3:ppn=15
 cd $PBS_O_WORKDIR
-torque-launch moz_1000_cmds.txt
+torque-launch missing_calibration_runs_1000_0.847.txt
