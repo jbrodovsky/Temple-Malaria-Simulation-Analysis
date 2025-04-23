@@ -179,6 +179,7 @@ def process_missing_jobs(
     beta_values: list[float],
     output_dir: str,
     repetitions: int = 20,
+    output_location: str = "jobs",
 ):
     """
     Writes a unified command and job file for any missing data file.
@@ -194,7 +195,7 @@ def process_missing_jobs(
                         months = analysis.get_table(file, "monthlydata")
                         monthlysitedata = analysis.get_table(file, "monthlysitedata")
                     except FileNotFoundError as e:
-                        with open(f"missing_calibration_runs_{pop}_{access}.txt", "a") as f:
+                        with open(f"{output_location}/missing_calibration_runs_{pop}.txt", "a") as f:
                             # f.write(f"{e}\n")
                             f.write(
                                 f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {i + 1}\n"
@@ -204,15 +205,15 @@ def process_missing_jobs(
                         #     f"{country_code}_{pop}_jobs",
                         #     cores_override=28,
                         # )
-                        if not os.path.exists(f"missing_calibration_runs_{pop}_{access}_job.sh"):
-                            with open(f"missing_calibration_runs_{pop}_{access}_job.sh", "w") as f:
+                        if not os.path.exists(f"{output_location}/missing_calibration_runs_{pop}_job.sh"):
+                            with open(f"{output_location}/missing_calibration_runs_{pop}_job.sh", "w") as f:
                                 f.write("#!/bin/sh\n")
                                 f.write("#PBS -l walltime=48:00:00\n")
                                 f.write("#PBS -N MyJob\n")
                                 f.write("#PBS -q normal\n")
                                 f.write("#PBS -l nodes=4:ppn=28\n")
                                 f.write("cd $PBS_O_WORKDIR\n")
-                                f.write(f"torque-launch missing_calibration_runs_{pop}_{access}.txt\n")
+                                f.write(f"torque-launch {output_location}/missing_calibration_runs_{pop}.txt\n")
                         continue
 
 
