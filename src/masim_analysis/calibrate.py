@@ -199,11 +199,11 @@ def process_missing_jobs(
                             f.write(
                                 f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {i + 1}\n"
                             )
-                        commands.generate_job_file(
-                            f"missing_calibration_runs_{pop}_{access}.txt",
-                            f"{country_code}_{pop}_jobs",
-                            cores_override=28,
-                        )
+                        # commands.generate_job_file(
+                        #     f"missing_calibration_runs_{pop}_{access}.txt",
+                        #     f"{country_code}_{pop}_jobs",
+                        #     cores_override=28,
+                        # )
                         if not os.path.exists(f"missing_calibration_runs_{pop}_{access}_job.sh"):
                             with open(f"missing_calibration_runs_{pop}_{access}_job.sh", "w") as f:
                                 f.write("#!/bin/sh\n")
