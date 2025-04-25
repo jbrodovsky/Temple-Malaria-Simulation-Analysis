@@ -110,7 +110,7 @@ def generate_command_and_job_files(
     repetitions: int = 20,
     cores: int = 28,
     nodes: int = 1,
-    output_dir: str = "jobs",
+
 ):
     """
     Generate command and job files for the given country code and parameters.
@@ -118,7 +118,7 @@ def generate_command_and_job_files(
     # Generate the command and job files
     for pop in tqdm(population_bins):
         filename = f"{country_code}_{pop}_cmds.txt"
-        with open(os.path.join(output_dir, filename), "w") as f:
+        with open(filename, "w") as f:
             for access in access_rates:
                 for beta in beta_values:
                     for j in range(repetitions):
@@ -126,8 +126,7 @@ def generate_command_and_job_files(
                             f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {j + 1}\n"
                         )
         commands.generate_job_file(
-            os.path.join(os.path.join(output_dir, filename)),
-            job_dir="jobs",
+            filename,
             job_name=f"{country_code}_{pop}_jobs",
             cores_override=cores,
             nodes_override=nodes,
