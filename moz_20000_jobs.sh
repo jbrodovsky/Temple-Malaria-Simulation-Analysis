@@ -4,4 +4,4 @@
 #PBS -q normal
 #PBS -l nodes=8:ppn=28
 cd $PBS_O_WORKDIR
-torque-launch jobs/jobs/moz_20000_cmds.txt
+torque-launch moz_20000_cmds.txt

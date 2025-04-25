@@ -98,7 +98,6 @@ def batch_generate_command_jobs(
 
 def generate_job_file(
     commands_filename: str,
-    job_dir: str = "jobs",
     job_name: str = "MyJob",
     cores_override: int = None,
     nodes_override: int = None,
@@ -107,7 +106,7 @@ def generate_job_file(
     with open(commands_filename, "r") as f:
         num_commands = sum(1 for _ in f)
     # Generate the job file
-    job_filename = os.path.join(job_dir, f"{job_name}.sh")
+    job_filename = f"{job_name}.sh"
     if os.path.exists(job_filename):
         os.remove(job_filename)
 
@@ -129,7 +128,7 @@ def generate_job_file(
         f.write("#PBS -q normal\n")
         f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
         f.write("cd $PBS_O_WORKDIR\n")
-        f.write(f"torque-launch {os.path.join(job_dir, commands_filename)}\n")
+        f.write(f"torque-launch {commands_filename}\n")
     # Display the commands file
     print(f"Commands file: {commands_filename}")
     print(f"Job script: {job_filename}")
