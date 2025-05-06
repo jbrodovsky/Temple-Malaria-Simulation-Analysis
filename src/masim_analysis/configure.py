@@ -9,6 +9,7 @@ from datetime import date
 from ruamel.yaml import YAML
 
 SEASONAL_MODEL = {"enable": True}
+NODATA_VALUE = -9999
 yaml = YAML()
 
 
@@ -186,7 +187,7 @@ def validate_raster_files(
     if not calibration:
         raster_db = {
             "population_raster": os.path.join(data_root, f"{name}_population.asc"),
-            "district_raster": os.path.join(data_root, f"{name}_district.asc"),
+            "district_raster": os.path.join(data_root, f"{name}_districts.asc"),
             "pr_treatment_under5": os.path.join(data_root, f"{name}_treatmentseeking.asc"),
             "pr_treatment_over5": os.path.join(data_root, f"{name}_treatmentseeking.asc"),
             "beta_raster": os.path.join(data_root, f"{name}_beta.asc"),
@@ -208,9 +209,11 @@ def validate_raster_files(
         }
         if not os.path.exists(raster_db["population_raster"]):
             with open(raster_db["population_raster"], "w") as file:
-                file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value -9999\n{population}")
+                file.write(
+                    f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {NODATA_VALUE}\n{population}"
+                )
             with open(raster_db["district_raster"], "w") as file:
-                file.write("ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value -9999\n1")
+                file.write("ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {NODATA_VALUE}\n1")
 
     return raster_db
 

@@ -12,9 +12,6 @@ from ruamel.yaml import YAML
 
 # Curve Fitting (linear and polynomial regression models)
 from scipy.optimize import curve_fit
-from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import PolynomialFeatures
 from tqdm import tqdm
 
 from masim_analysis import analysis, commands, configure
@@ -293,9 +290,9 @@ def plot_log_sigmoid(
                 continue
             # Plot data
             ax.set_xscale("log")
-            sns.scatterplot(x = group['beta'].values,
-                            y = group["pfpr2to10"].values / 100,
-                            ax=ax, label="Data", color="black")
+            sns.scatterplot(
+                x=group["beta"].values, y=group["pfpr2to10"].values / 100, ax=ax, label="Data", color="black"
+            )
             # Predictions
             popt = model_map[treatment_access][population]
             if popt is not None:
