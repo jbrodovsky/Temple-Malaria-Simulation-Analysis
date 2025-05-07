@@ -21,9 +21,7 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 [project.scripts]
-analysis = "masim_analysis:main"
 generate-commands = "masim_analysis.commands:main"
-configure = "masim_analysis.configure:main"
 
 [build-system]
 requires = ["hatchling"]

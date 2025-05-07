@@ -94,7 +94,6 @@ def generate_configuration_files(
                     beta=beta,
                     population=pop,
                 )
-
                 output_path = os.path.join("conf", country_code, "calibration", f"cal_{pop}_{access}_{beta}.yml")
                 yaml.dump(execution_control, open(output_path, "w"))
 
