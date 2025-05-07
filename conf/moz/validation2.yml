@@ -2,7 +2,7 @@
 #
 # Boni Lab
 #
-# Template for the Rwanda district MFT strategy, note that the
+# Template for the moznda district MFT strategy, note that the
 # number of years between drug rotations needs to be supplied.
 #
 # ---------------------------------------------------------------
@@ -53,7 +53,7 @@ number_of_age_classes: 15
 age_structure: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 20, 60, 100]
 
 # Age structure used when initializing the model at T-0
-initial_age_structure: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 35, 45, 55, 65, 100]
+initial_age_structure: [1, 5, 9, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 100]
 
 # Scaling of the population in the model (based on BFA)
 artificial_rescaling_of_population_size: 0.25
@@ -79,8 +79,8 @@ raster_db:
   # Set the cell size used by raster, in sq.km
   cell_size: 5
 
-  # Approximate national age distribution for Rwanda
-  age_distribution_by_location: [[0.0378, 0.0378, 0.0378, 0.0378, 0.0282, 0.0282, 0.0282, 0.0282, 0.0282,  0.029,  0.029,  0.029,  0.029,  0.029,  0.169,  0.134,  0.106,  0.066,  0.053,  0.035, 0.0]]
+  # Approximate national age distribution for moznda
+  age_distribution_by_location: [[0.037, 0.132, 0.161, 0.142, 0.090, 0.086, 0.070, 0.052, 0.044, 0.044, 0.031, 0.041, 0.024, 0.017, 0.013, 0.017]]
 
   # Probability that an infected an symptomatic person receives treatment, 
   # note that a single value is being used for the entire country
@@ -90,16 +90,16 @@ raster_db:
   # Will be overridden by beta_raster
   beta_by_location: [ 0.55 ]
 
-# Seasonality of malaria in Rwanda
+# Seasonality of malaria in moznda
 seasonal_info:
   enable: false
   mode: rainfall
   rainfall:
-    filename: "./data/rwa/rwa_seasonality.csv"
+    filename: "./data/moz/moz_seasonality.csv"
     period: 365
 
 # Country specific movement model and calibration  
-# TODO Generic movement model that needs to be updated for Rwanda at some point
+# TODO Generic movement model that needs to be updated for moznda at some point
 spatial_model:
   name: "Wesolowski"
   Wesolowski:
@@ -108,11 +108,11 @@ spatial_model:
     beta: 0.14319618
     gamma: 0.83741484
 
-# Crude Birth Rate: 28.8 (Rwanda Vital Statistics Report, 2020)
+# Crude Birth Rate: 28.8 (moznda Vital Statistics Report, 2020)
 birth_rate: 0.0288
 
-# Malaria adjusted, all-causes death rate for Rwanda
-death_rate_by_age_class: [ 0.02641, 0.00202, 0.00202, 0.00202, 0.00198, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00455, 0.00455, 0.05348 ]
+# Malaria adjusted, all-causes death rate for moznda
+death_rate_by_age_class: [0.049744, 0.064331, 0.064331, 0.064331, 0.064331, 0.00359, 0.00361, 0.00365, 0.00379, 0.00379, 0.133, 0.133, 0.0174, 0.0174, 0.0174]
 
 # probability of death for patients who are not treated or patients who experience a treatment failure (due to drug resistance, or otherwise)
 # when received treatment, this rate drop by factor of 10 in code
@@ -205,46 +205,11 @@ initial_parasite_info:
       - parasite_type_id: 36
         prevalence: 0.05
         
-# Events for Rwanda
+# Events for moznda
 events:
   - name: turn_off_mutation
     info:
       - day: 2003/1/1
-  # - name: turn_on_mutation
-  #   info:
-  #     # Lumefantrine (baseline, MFT interventions)
-  #     - day: 2014/1/1
-  #       drug_id: 1
-  #       mutation_probability: 0.001983
-  #     # Piperaquine (MFT interventions)
-  #     - day: 2014/1/1
-  #       drug_id: 3
-  #       mutation_probability: 0.001983          
-  # - name: introduce_mutant_event
-  #   info:
-  #     - day: 2004/09/30
-  #       district: 8                 # Gasabo
-  #       fraction: 0.06
-  #       locus: 2
-  #       mutant_allele: 1
-  # - name: update_beta_raster_event
-  #   info: 
-  #     - day: 2021/01/01
-  #       beta_raster: "./data/rwa/rwa_beta_incidence.asc"
-  # ---------------------------------------------------------------
-  # I think this is where we specify the interventions that we want to use.
-  # ---------------------------------------------------------------
-  # Rotate the district strategy every two years
-  # - name: rotate_treatment_strategy_event
-  #   info:
-  #     - day: 2025/1/1
-  #       years: 2
-  #       first_strategy_id: 1
-  #       second_strategy_id: 2
-  - name: begin_intervention
-    info:
-      - day: 2025/1/1
-      - strategy_ids: [2]
 
 # Drug Information
 #
@@ -269,7 +234,7 @@ events:
 #               to intermediate concentrations, and then decreases linearly from intermediate concentrations to zero
 #
 drug_db:
-  # Rwanda treatments
+  # moznda treatments
   0:
     name: "ART"       # Artemisinin
     half_life: 0.0
@@ -403,10 +368,10 @@ drug_db:
 #artemisinin_drug_id: 0
 #lumefantrine_drug_id: 4
 
-# Therapies that are used in Rwanda
+# Therapies that are used in moznda
 tf_testing_day: 28
 therapy_db:
-  # Rwanda Treatments
+  # moznda Treatments
   # ACT - artemether–lumefantrine (AL) / first line therapy
   0:
     drug_id: [0, 1]
@@ -446,31 +411,31 @@ therapy_db:
 # Ok, so there is also some sort of weird parsing error here sometimes.... the above formatting for drug_db works
 ###
 
-# Drug-deployment strategy - baseline represents the survey data for Rwanda
+# Drug-deployment strategy - baseline represents the survey data for moznda
 strategy_db:
   0:
-    name: Rwanda-Baseline
+    name: moznda-Baseline
     type: MFT
     therapy_ids: [0]
     distribution: [1]
   1:
-    name: Rwanda-AL4
-    #name: Rwanda-DHA-PPQ
+    name: moznda-AL4
+    #name: moznda-DHA-PPQ
     type: MFT #<--- So if I change this to ACT things break
     therapy_ids: [6]
     distribution: [1]
   2:
-    name: Rwanda-AL5
+    name: moznda-AL5
     type: MFT
     therapy_ids: [5]
     distribution: [1]
   3:
-    name: Rwanda-ASAQ
+    name: moznda-ASAQ
     type: MFT
     therapy_ids: [6]
     distribution: [1]
   4: 
-    name: Rwanda-DHA-PPQ
+    name: moznda-DHA-PPQ
     type: MFT
     therapy_ids: [3]
     distribution: [1]
@@ -521,7 +486,7 @@ strategy_db:
     distribution: [0.75, 0.25]
     
   # 1:
-  #   name: Rwanda-District-First
+  #   name: moznda-District-First
   #   type: DistrictMFT
   #   definitions:
   #     0: 
@@ -533,7 +498,7 @@ strategy_db:
   #       therapy_ids: [0]
   #       distribution: [1.0]
   # 2:
-  #   name: Rwanda-District-Second
+  #   name: moznda-District-Second
   #   type: DistrictMFT
   #   definitions:
   #     0: 
@@ -545,7 +510,7 @@ strategy_db:
   #       therapy_ids: [0]
   #       distribution: [1.0]
   #####
-  # So there is a weird parsing error occuring here. Modifying the above Rwanda-Baseline strategy to be the Rwanda-DHA-PPQ 
+  # So there is a weird parsing error occuring here. Modifying the above moznda-Baseline strategy to be the moznda-DHA-PPQ 
   # strategy works just fine. I have not idea what is going on. This yaml file really needs to be standardized and 
   # automatically generated from a script or something that can write the data correctly.
   #####
