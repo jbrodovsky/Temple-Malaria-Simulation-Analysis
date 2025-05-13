@@ -2,7 +2,6 @@
 Generate input configuration files for MaSim. This module provides functions to generate input configuration YAML files for MaSim. This should be used to generate the appropriate strategy input files and calibration files.
 """
 
-import argparse
 import os
 from datetime import date
 from dataclasses import dataclass, field, asdict
@@ -14,7 +13,10 @@ SEASONAL_MODEL = {"enable": True}
 NODATA_VALUE = -9999
 yaml = YAML()
 
-genotype_info = {
+# --- YAML Database Constants ---
+# These are the dictionaries that define various constants parameters used by the simulation
+# TODO: #10 Convert database dictionaries to dataclasses for better type checking and validation
+GENOTYPE_INFO = {
     "loci": [
         {
             "locus_name": "pfcrt",
@@ -154,9 +156,7 @@ genotype_info = {
         },
     ]
 }
-
-
-drug_db = {
+DRUG_DB = {
     0: {
         "name": "ART",
         "half_life": 0.0,
@@ -443,9 +443,7 @@ drug_db = {
         "EC50": {"0....": 1.41, "1....": 1.41},
     },
 }
-
-
-therapy_db = {
+THERAPY_DB = {
     # ACT - artesunate–amodiaquine (ASAQ)
     0: {"drug_id": [0, 1], "dosing_days": [3]},
     # ACT - artemether–lumefantrine (AL)
@@ -465,14 +463,13 @@ therapy_db = {
     # COMBINATION - Sulfadoxine/pyrimethamine (SP)
     8: {"drug_id": [2], "dosing_days": [3]},
 }
-relative_infectivity = {
+RELATIVE_INFECTIVITY = {
     "sigma": 3.91,
     "ro": 0.00031,
     # on average 1 mosquito take 3 microliters of blood per bloodeal
     "blood_meal_volume": 3,
 }
-
-strategy_db = {
+STRATEGY_DB = {
     0: {
         "name": "baseline",
         "type": "MFT",
@@ -484,7 +481,7 @@ strategy_db = {
 
 @dataclass
 class ConfigureParams:
-    country_code: str
+    # country_code: str ###
     days_between_notifications: int = 30
     initial_seed_number: int = 0
     connection_string: str = "host=masimdb.vmhost.psu.edu dbname=rwanda user=sim password=sim connect_timeout=60"
@@ -501,37 +498,41 @@ class ConfigureParams:
         default_factory=lambda: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 35, 45, 55, 65, 100]
     )
     artificial_rescaling_of_population_size: float = 0.25
-    age_distribution_by_location: List[List[float]] = field(
-        default_factory=lambda: [
-            [
-                0.0378,
-                0.0378,
-                0.0378,
-                0.0378,
-                0.0282,
-                0.0282,
-                0.0282,
-                0.0282,
-                0.0282,
-                0.029,
-                0.029,
-                0.029,
-                0.029,
-                0.029,
-                0.169,
-                0.134,
-                0.106,
-                0.066,
-                0.053,
-                0.035,
-                0.0,
-            ]
-        ]
-    )
-    p_treatment_for_less_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
-    p_treatment_for_more_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
-    seasonality_toggle: bool = True
-    spatial_model_toggle: bool = True
+    # RASTER DB VALUE
+    # age_distribution_by_location: List[List[float]] = field(
+    #     default_factory=lambda: [
+    #         [
+    #             0.0378,
+    #             0.0378,
+    #             0.0378,
+    #             0.0378,
+    #             0.0282,
+    #             0.0282,
+    #             0.0282,
+    #             0.0282,
+    #             0.0282,
+    #             0.029,
+    #             0.029,
+    #             0.029,
+    #             0.029,
+    #             0.029,
+    #             0.169,
+    #             0.134,
+    #             0.106,
+    #             0.066,
+    #             0.053,
+    #             0.035,
+    #             0.0,
+    #         ]
+    #     ]
+    # )
+    # p_treatment_for_less_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
+    # p_treatment_for_more_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
+
+    # Toggles for inclusion of other dicts
+    # seasonality_toggle: bool = True
+    # spatial_model_toggle: bool = True
+
     birth_rate: float = 0.0412
     death_rate_by_age_class: List[float] = field(
         default_factory=lambda: [
@@ -588,6 +589,7 @@ class ConfigureParams:
     tf_testing_day: int = 28
     fraction_mosquitoes_interrupted_feeding: float = 0.0
     inflation_factor: float = 0.01
+    # These features are disabled currently
     using_age_dependent_bitting_level: bool = False
     using_variable_probability_infectious_bites_cause_infection: bool = False
     mda_therapy_id: int = 8
@@ -738,6 +740,7 @@ class RelativeBittingInfo:
     )
 
 
+# Create the actual database entries
 parasite_density_level = ParasiteDensityLevel()
 immune_system_information = ImmuneSystemInformation()
 circulation_info = CirculationInfo()
@@ -798,7 +801,7 @@ def load_yaml(file_path: str) -> dict:
         return yaml.load(file)
 
 
-def validate_raster_files(
+def create_raster_db(
     name: str,
     calibration: bool = False,
     calibration_string: str = "",
@@ -827,7 +830,6 @@ def validate_raster_files(
         0.0,
     ],
     beta: float = -1.0,
-    population: int = -1,
 ) -> dict:
     """
     Validate the raster files for the simulation. Optionally, generate calibration raster files.
@@ -840,11 +842,11 @@ def validate_raster_files(
         calibration_string = f"_{calibration_string}"
     try:
         os.makedirs(data_root)
-    except FileExistsError as e:
+    except FileExistsError:
         pass
     try:
         os.makedirs(conf_root)
-    except FileExistsError as e:
+    except FileExistsError:
         pass
 
     raster_db = {
@@ -859,193 +861,62 @@ def validate_raster_files(
     }
     if calibration:
         raster_db["beta_by_location"] = [beta]
-
-        if not os.path.exists(raster_db["population_raster"]):
-            with open(raster_db["population_raster"], "w") as file:
-                file.write(
-                    f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {NODATA_VALUE}\n{population}"
-                )
-            with open(raster_db["district_raster"], "w") as file:
-                file.write("ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {NODATA_VALUE}\n1")
     else:
-        raster_db["beta_by_location"] = [0.55]
+        raster_db["beta_by_location"] = [0.5]
         raster_db["beta_raster"] = os.path.join(data_root, f"{name}_beta.asc")
 
     return raster_db
 
 
-def configure(params: ConfigureParams) -> dict:
+# TODO: #12 Refactor configure.configure to take only input parameters and then use the dataclass to create the configuration
+def configure(
+    country_code: str,
+    birth_rate: float,
+    initial_age_structure: list[int],
+    age_distribution: list[float],  # pass to validate_raster_files
+    death_rates: list[float],
+    starting_date: date,
+    start_of_comparison_period: date,
+    ending_date: date,
+    calibration_str: str = "",  # pass to validate raster files
+    beta_override: float = -1.0,  # pass to validate
+    population_override: int = -1,  # pass to validate
+    access_rate_override: float = -1.0,  # pass to validate
+) -> dict:
     """
     Create the configuration dictionary for the simulation. This function allows the user to set all the parameters in the .yml files used by MaSim.
     """
-    # execution_control = {
-    #    "days_between_notifications": params.days_between_notifications,
-    #    "initial_seed_number": params.initial_seed_number,
-    #    "connection_string": params.connection_string,
-    #    "record_genome_db": params.record_genome_db,
-    #    "report_frequency": params.report_frequency,
-    #    "starting_date": params.starting_date.strftime("%Y/%m/%d"),
-    #    "start_of_comparison_period": params.start_of_comparison_period.strftime("%Y/%m/%d"),
-    #    "ending_date": params.ending_date.strftime("%Y/%m/%d"),
-    #    "start_collect_data_day": params.start_collect_data_day,
-    #    "number_of_tracking_days": params.number_of_tracking_days,
-    #    "transmission_parameter": params.transmission_parameter,
-    #    "number_of_age_classes": len(params.age_structure),
-    #    "age_structure": params.age_structure,
-    #    "initial_age_structure": params.initial_age_structure,
-    #    "artificial_rescaling_of_population_size": params.artificial_rescaling_of_population_size,
-    #    "age_distribution_by_location": params.age_distribution_by_location,
-    #    "p_treatment_for_less_than_5_by_location": params.p_treatment_for_less_than_5_by_location,
-    #    "p_treatment_for_more_than_5_by_location": params.p_treatment_for_more_than_5_by_location,
-    #    "seasonality_toggle": params.seasonality_toggle,
-    #    "spatial_model_toggle": params.spatial_model_toggle,
-    #    "birth_rate": params.birth_rate,
-    #    "death_rate_by_age_class": params.death_rate_by_age_class,
-    #    "mortality_when_treatment_fail_by_age_class": params.mortality_when_treatment_fail_by_age_class,
-    #    "initial_strategy_id": params.initial_strategy_id,
-    #    "days_to_clinical_under_five": params.days_to_clinical_under_five,
-    #    "days_to_clinical_over_five": params.days_to_clinical_over_five,
-    #    "days_mature_gametocyte_under_five": params.days_mature_gametocyte_under_five,
-    #    "days_mature_gametocyte_over_five": params.days_mature_gametocyte_over_five,
-    #    "gametocyte_level_under_artemisinin_action": params.gametocyte_level_under_artemisinin_action,
-    #    "gametocyte_level_full": params.gametocyte_level_full,
-    #    "p_relapse": params.p_relapse,
-    #    "relapse_duration": params.relapse_duration,
-    #    "relapseRate": params.relapseRate,
-    #    "update_frequency": params.update_frequency,
-    #    "allow_new_coinfection_to_cause_symtoms": params.allow_new_coinfection_to_cause_symtoms,
-    #    "using_free_recombination": params.using_free_recombination,
-    #    "tf_window_size": params.tf_window_size,
-    #    "fraction_mosquitoes_interrupted_feeding": params.fraction_mosquitoes_interrupted_feeding,
-    #    "inflation_factor": params.inflation_factor,
-    #    "using_age_dependent_bitting_level": params.using_age_dependent_bitting_level,
-    #    "using_variable_probability_infectious_bites_cause_infection": params.using_variable_probability_infectious_bites_cause_infection,
-    #    "mda_therapy_id": params.mda_therapy_id,
-    #    "age_bracket_prob_individual_present_at_mda": params.age_bracket_prob_individual_present_at_mda,
-    #    "mean_prob_individual_present_at_mda": params.mean_prob_individual_present_at_mda,
-    #    "sd_prob_individual_present_at_mda": params.sd_prob_individual_present_at_mda,
-    # }
-    execution_control = asdict(params)
-    execution_control["starting_date"] = params.starting_date.strftime("%Y/%m/%d")
-    execution_control["start_of_comparison_period"] = params.start_of_comparison_period.strftime("%Y/%m/%d")
-    execution_control["ending_date"] = params.ending_date.strftime("%Y/%m/%d")
-    execution_control["raster_db"] = validate_raster_files(
-        params.country_code, calibration=False, age_distribution=params.initial_age_structure
+    if calibration_str is not None and beta_override >= 0.0 and population_override > 0 and access_rate_override >= 0.0:
+        calibration = True
+    else:
+        calibration = False
+
+    params = ConfigureParams(
+        birth_rate=birth_rate,
+        initial_age_structure=initial_age_structure,
+        death_rate_by_age_class=death_rates,
+        starting_date=starting_date.strftime("%Y/%m/%d"),
+        start_of_comparison_period=start_of_comparison_period.strftime("%Y/%m/%d"),
+        ending_date=ending_date.strftime("%Y/%m/%d"),
     )
-    execution_control["drug_db"] = drug_db
-    execution_control["therapy_db"] = therapy_db
-    execution_control["spatial_model"] = create_spatial_model(params.spatial_model_toggle)
-    execution_control["seasonal_info"] = create_seasonal_model(params.seasonality_toggle, params.country_code)
-    execution_control["events"] = [
-        {"name": "turn_off_mutation", "info": [{"day": params.starting_date.strftime("%Y/%m/%d")}]}
-    ]
-    execution_control["strategy_db"] = strategy_db
+    execution_control = asdict(params)
+    execution_control["raster_db"] = create_raster_db(
+        country_code, calibration=False, age_distribution=age_distribution
+    )
+    execution_control["spatial_model"] = create_spatial_model(not calibration)
+    execution_control["seasonal_info"] = create_seasonal_model(True, country_code)
     execution_control["parasite_density_level"] = asdict(parasite_density_level)
     execution_control["immune_system_information"] = asdict(immune_system_information)
     execution_control["circulation_info"] = asdict(circulation_info)
     execution_control["initial_parasite_info"] = [entry.to_dict() for entry in initial_parasite_info]
     execution_control["relative_bitting_info"] = asdict(relative_bitting_info)
-
-    execution_control["relative_infectivity"] = relative_infectivity
-    execution_control["genotype_info"] = genotype_info
-
-    return execution_control
-
-
-def main(
-    name: str,
-    start_date: str,
-    end_date: str,
-    comparison_date: str,
-    start_collecting_day: int = 1825,
-    birth_rate: float = 0.0412,
-    initial_age_structure: list[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 35, 45, 55, 65, 100],
-    death_rate=[
-        0.02641,
-        0.00202,
-        0.00202,
-        0.00202,
-        0.00198,
-        0.00247,
-        0.00247,
-        0.00247,
-        0.00247,
-        0.00247,
-        0.00247,
-        0.00247,
-        0.00455,
-        0.00455,
-        0.05348,
-    ],
-    age_distribution=[
-        0.037,
-        0.132,
-        0.161,
-        0.142,
-        0.090,
-        0.086,
-        0.070,
-        0.052,
-        0.044,
-        0.044,
-        0.031,
-        0.041,
-        0.024,
-        0.017,
-        0.013,
-        0.017,
-    ],
-    calibration: bool = False,
-    strategy: str = "baseline",
-) -> dict:
-    """
-    Generate the input configuration file for MaSim."
-    """
-
-    assert len(death_rate) == len(initial_age_structure) == len(age_distribution), (
-        f"The length of death_rate ({len(death_rate)}) and age_distribution ({len(age_distribution)}), must be the same as age_structure ({len(age_distribution)})."
-    )
-    execution_control = load_yaml(os.path.join("templates", "config.yml"))
-    execution_control["starting_date"] = start_date
-    execution_control["start_of_comparison_period"] = comparison_date
-    execution_control["ending_date"] = end_date
-    execution_control["start_collect_data_day"] = start_collecting_day
-    execution_control["birth_rate"] = birth_rate
-    execution_control["death_rate_by_age_class"] = death_rate
-    execution_control["death_rate"] = death_rate
-    execution_control["initial_age_structure"] = initial_age_structure
-    execution_control["seasonal_info"] = {
-        "enable": True,
-        "mode": "rainfall",
-        "rainfall": {
-            "filename": os.path.join("data", name, f"{name}_seasonality.csv"),
-            "period": 365,
-        },
-    }
-    execution_control["spatial_model"] = create_spatial_model(calibration)
-    execution_control["raster_db"] = validate_raster_files(name, calibration, age_distribution=age_distribution)
-    execution_control["drug_db"] = load_yaml("templates/drug_db.yml")
-    execution_control["therapy_db"] = load_yaml("templates/therapy_db.yml")
-    execution_control["genotype_info"] = load_yaml("templates/genotype_info.yml")
-    if calibration:
-        execution_control["events"] = [
-            {"name": "turn_off_mutation", "info": {"day": start_date}},
-            # {"name": "begin_intervention", "info": {"day": start_date, "strategy_ids": [0]}},
-        ]
-        output_path = os.path.join("conf", name, "calibration", f"{strategy}.yml")
-    else:
-        execution_control["events"] = [{"name": "turn_off_mutation", "info": {"day": start_date}}]
-        execution_control["strategy_db"] = {
-            0: {
-                "name": "baseline",
-                "type": "MFT",
-                "therapy_ids": [0],
-                "distribution": [1],
-            },
-        }
-        execution_control["initial_strategy_id"] = 0
-        output_path = os.path.join("conf", name, f"{strategy}.yml")
-        # Write the configuration files
-        yaml.dump(execution_control, open(output_path, "w"))
+    execution_control["relative_infectivity"] = RELATIVE_INFECTIVITY
+    execution_control["genotype_info"] = GENOTYPE_INFO
+    execution_control["drug_db"] = DRUG_DB
+    execution_control["therapy_db"] = THERAPY_DB
+    execution_control["strategy_db"] = STRATEGY_DB
+    execution_control["events"] = [
+        {"name": "turn_off_mutation", "info": [{"day": params.starting_date.strftime("%Y/%m/%d")}]}
+    ]
 
     return execution_control

@@ -27,6 +27,7 @@ def generate_configuration_files(
     beta_values: list[float],
     birth_rate: float,
     death_rate: list[float],
+    initial_age_structure: list[float],
     age_distribution: list[float],
     seasonality_file_name: str = "seasonality",
 ) -> None:
@@ -50,52 +51,40 @@ def generate_configuration_files(
     start = date(calibration_year - 11, 1, 1)
     end = date(calibration_year + 1, 12, 31)
     # Create default execution control dictionary
-    execution_control = configure.main(
-        country_code,
-        start.strftime("%Y/%m/%d"),
-        end.strftime("%Y/%m/%d"),
-        comparison.strftime("%Y/%m/%d"),
-        calibration=True,
-    )
-    execution_control["birth_rate"] = birth_rate
-    execution_control["death_rate"] = death_rate
-    execution_control["age_distribution"] = age_distribution
-    execution_control["strategy_db"] = {
-        0: {
-            "name": "baseline",
-            "type": "MFT",
-            "therapy_ids": [0],
-            "distribution": [1],
-        },
-    }
-    execution_control["initial_strategy_id"] = 0
-    execution_control["events"] = [
-        {"name": "turn_off_mutation", "info": [{"day": start.strftime("%Y/%m/%d")}]},
-    ]
 
-    execution_control["seasonal_info"] = {
-        "enable": True,
-        "mode": "rainfall",
-        "rainfall": {
-            "filename": os.path.join("data", country_code, f"{country_code}_{seasonality_file_name}.csv"),
-            "period": 365,
-        },
-    }
     # Generate the configuration files
     for pop in tqdm(population_bins):
         for access in access_rates:
             for beta in beta_values:
-                execution_control["raster_db"] = configure.validate_raster_files(
-                    "moz",
-                    calibration=True,
-                    calibration_string=f"{pop}_{access}_{beta}",
-                    access_rate=access,
-                    age_distribution=age_distribution,
-                    beta=beta,
-                    population=pop,
+                execution_control = configure.configure(
+                    country_code,
+                    birth_rate,
+                    initial_age_structure,
+                    age_distribution,
+                    death_rate,
+                    start.strftime("%Y/%m/%d"),
+                    comparison.strftime("%Y/%m/%d"),
+                    end.strftime("%Y/%m/%d"),
+                    f"{pop}_{access}_{beta}",
+                    beta,
+                    pop,
+                    access
                 )
+                write_pixel_data_files(execution_control["raster_db"], pop)
                 output_path = os.path.join("conf", country_code, "calibration", f"cal_{pop}_{access}_{beta}.yml")
                 yaml.dump(execution_control, open(output_path, "w"))
+
+
+def write_pixel_data_files(raster_db: dict, population: int):
+    """
+    Write the pixel data files for the simulation.
+    """
+    with open(raster_db["population_raster"], "w") as file:
+        file.write(
+            f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n{population}"
+        )
+    with open(raster_db["district_raster"], "w") as file:
+        file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n1")
 
 
 def generate_command_and_job_files(
