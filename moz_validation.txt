@@ -1,1 +1,1 @@
-./bin/MaSim -i conf/moz/calibration/moz_birth_validation_cal.yml -o conf/moz/calibration/birth_calibration_ -r SQLiteDistrictReporter 
+./bin/MaSim -i conf/moz/calibration/moz_birth_rate_cal.yml -o conf/moz/calibration/birth_calibration_ -r SQLiteDistrictReporter 
