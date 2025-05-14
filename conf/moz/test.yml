@@ -18,7 +18,7 @@ days_between_notifications: 30
 initial_seed_number: 0
 
 # Connection string for the PostgreSQL database
-connection_string: "host=masimdb.vmhost.psu.edu dbname=moznda user=sim password=sim connect_timeout=60"
+connection_string: "host=masimdb.vmhost.psu.edu dbname=rwanda user=sim password=sim connect_timeout=60"
 
 # Record the genomic data
 record_genome_db: true
@@ -56,7 +56,7 @@ age_structure: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 20, 60, 100]
 initial_age_structure: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 35, 45, 55, 65, 100]
 
 # Scaling of the population in the model (based on BFA)
-artificial_rescaling_of_population_size: 0.1
+artificial_rescaling_of_population_size: 0.25
 
 # ---------------------------------------------------------------
 # Rasters to be used in conjunction with the location_db, note 
@@ -64,7 +64,7 @@ artificial_rescaling_of_population_size: 0.1
 # ---------------------------------------------------------------
 raster_db:
   # Adjusted population to account for burn-in up to 2009 start 
-  population_raster: "./data/moz/moz_population.asc"
+  population_raster: "./data/moz/moz_initialpopulation.asc"
     
   # Raster files defining the country
   district_raster: "./data/moz/moz_districts.asc"
@@ -74,13 +74,13 @@ raster_db:
   pr_treatment_over5: "./data/moz/moz_treatmentseeking.asc" 
 
   # Raster file containing the calibrated beta value
-  beta_raster: "./data/moz/moz_beta.asc"
+  # beta_raster: "./data/moz/moz_beta.asc"
   
   # Set the cell size used by raster, in sq.km
   cell_size: 5
 
   # Approximate national age distribution for Rwanda
-  age_distribution_by_location: [[0.037, 0.132, 0.161, 0.142, 0.090, 0.086, 0.070, 0.052, 0.044, 0.044, 0.031, 0.041, 0.024, 0.017, 0.013, 0.017]]
+  age_distribution_by_location: [[0.037, 0.132, 0.161, 0.142, 0.09, 0.086, 0.07, 0.052, 0.044, 0.044, 0.031, 0.041, 0.024, 0.017, 0.013, 0.017]]
 
   # Probability that an infected an symptomatic person receives treatment, 
   # note that a single value is being used for the entire country
@@ -88,11 +88,11 @@ raster_db:
   p_treatment_for_more_than_5_by_location: [ -1 ]
 
   # Will be overridden by beta_raster
-  beta_by_location: [ 0.55 ]
+  beta_by_location: [ 0.5 ]
 
 # Seasonality of malaria in Rwanda
 seasonal_info:
-  enable: false
+  enable: true
   mode: rainfall
   rainfall:
     filename: "./data/moz/moz_seasonality.csv"
@@ -112,7 +112,7 @@ spatial_model:
 birth_rate: 0.0312
 
 # Malaria adjusted, all-causes death rate for Rwanda
-death_rate_by_age_class: [0.049744, 0.064331, 0.064331, 0.064331, 0.064331, 0.00359, 0.00361, 0.00365, 0.00379, 0.00379, 0.133, 0.133, 0.0174, 0.0174, 0.0174]
+death_rate_by_age_class: [0.02641, 0.00202, 0.00202, 0.00202, 0.00198, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00247, 0.00455, 0.00455, 0.05348]
 
 # probability of death for patients who are not treated or patients who experience a treatment failure (due to drug resistance, or otherwise)
 # when received treatment, this rate drop by factor of 10 in code
@@ -209,7 +209,9 @@ initial_parasite_info:
 events:
   - name: turn_off_mutation
     info:
-      - day: 2011/1/1
+      - day: 2003/1/1
+
+
 # Drug Information
 #
 # maximum_parasite_killing_rate: 
