@@ -7,6 +7,6 @@
 #PBS -l nodes=1:ppn=28
 cd $PBS_O_WORKDIR
 
-module load gcc/12.2.0
+# module load gcc/12.2.0
 
-./bin/MaSim -i conf/moz/calibration/moz_birth_rate_cal.yml -o output/moz/birth_validation/birth_calibration_ -r SQLiteDistrictReporter
+./bin/MaSim -i conf/moz/test.yml -o moz_test_ -r SQLiteDistrictReporter -j 99
