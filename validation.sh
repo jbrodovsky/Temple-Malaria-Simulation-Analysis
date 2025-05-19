@@ -9,4 +9,4 @@ cd $PBS_O_WORKDIR
 
 # module load gcc/12.2.0
 
-./bin/MaSim -i conf/moz/test.yml -o moz_test_ -r SQLiteDistrictReporter -j 99
+./bin/MaSim -i conf/moz/test.yml -o moz_test_ -r SQLiteDistrictReporter -j 98
