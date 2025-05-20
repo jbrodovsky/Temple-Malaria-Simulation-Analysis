@@ -157,8 +157,9 @@ GENOTYPE_INFO = {
     ]
 }
 DRUG_DB = {
+    # Artemisinin
     0: {
-        "name": "ART",
+        "name": "ART", # or sometimes AR
         "half_life": 0.0,
         "maximum_parasite_killing_rate": 0.999,
         "n": 25,
@@ -185,8 +186,9 @@ DRUG_DB = {
         "k": 4,
         "EC50": {"..0..": 0.75, "..1..": 1.2},
     },
+    # Amodiaquine
     1: {
-        "name": "ADQ",
+        "name": "AQ",
         "half_life": 9.0,
         "maximum_parasite_killing_rate": 0.95,
         "n": 19,
@@ -230,6 +232,7 @@ DRUG_DB = {
             "17...": 0.82,
         },
     },
+    # Sulfadoxine/pyrimethamine
     2: {
         "name": "SP",
         "half_life": 6.5,
@@ -258,6 +261,7 @@ DRUG_DB = {
         "k": 4,
         "EC50": {".....": 1.08},
     },
+    # Chloroquine
     3: {
         "name": "CQ",
         "half_life": 10,
@@ -303,6 +307,7 @@ DRUG_DB = {
             "17...": 1.35,
         },
     },
+    # Lumefantrine
     4: {
         "name": "LUM",
         "half_life": 4.5,
@@ -348,6 +353,7 @@ DRUG_DB = {
             "17...": 0.95,
         },
     },
+    # Piperaquine
     5: {
         "name": "PQ",
         "half_life": 28.0,
@@ -377,6 +383,7 @@ DRUG_DB = {
         "k": 4,
         "EC50": {"...0.": 0.58, "...1.": 1.4},
     },
+    # Mefloquine
     6: {
         "name": "MF",
         "half_life": 21.0,
@@ -414,6 +421,7 @@ DRUG_DB = {
             ".7...": 1.1,
         },
     },
+    # Quinine
     7: {
         "name": "QUIN",
         "half_life": 18,
@@ -487,9 +495,9 @@ class ConfigureParams:
     connection_string: str = "host=masimdb.vmhost.psu.edu dbname=rwanda user=sim password=sim connect_timeout=60"
     record_genome_db: bool = True
     report_frequency: int = 30
-    starting_date: date = date(2005, 1, 1)
-    start_of_comparison_period: date = date(2020, 1, 1)
-    ending_date: date = date(2024, 1, 1)
+    starting_date: str = date(2005, 1, 1).strftime("%Y/%m/%d")
+    start_of_comparison_period: str = date(2020, 1, 1).strftime("%Y/%m/%d")
+    ending_date: str = date(2024, 1, 1).strftime("%Y/%m/%d")
     start_collect_data_day: int = 1826
     number_of_tracking_days: int = 11
     transmission_parameter: float = 0.55  # beta value
@@ -498,41 +506,6 @@ class ConfigureParams:
         default_factory=lambda: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 35, 45, 55, 65, 100]
     )
     artificial_rescaling_of_population_size: float = 0.25
-    # RASTER DB VALUE
-    # age_distribution_by_location: List[List[float]] = field(
-    #     default_factory=lambda: [
-    #         [
-    #             0.0378,
-    #             0.0378,
-    #             0.0378,
-    #             0.0378,
-    #             0.0282,
-    #             0.0282,
-    #             0.0282,
-    #             0.0282,
-    #             0.0282,
-    #             0.029,
-    #             0.029,
-    #             0.029,
-    #             0.029,
-    #             0.029,
-    #             0.169,
-    #             0.134,
-    #             0.106,
-    #             0.066,
-    #             0.053,
-    #             0.035,
-    #             0.0,
-    #         ]
-    #     ]
-    # )
-    # p_treatment_for_less_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
-    # p_treatment_for_more_than_5_by_location: List[float] = field(default_factory=lambda: [-1.0])
-
-    # Toggles for inclusion of other dicts
-    # seasonality_toggle: bool = True
-    # spatial_model_toggle: bool = True
-
     birth_rate: float = 0.0412
     death_rate_by_age_class: List[float] = field(
         default_factory=lambda: [
@@ -878,10 +851,12 @@ def configure(
     starting_date: date,
     start_of_comparison_period: date,
     ending_date: date,
+    strategy_db: dict = STRATEGY_DB,
     calibration_str: str = "",  # pass to validate raster files
     beta_override: float = -1.0,  # pass to validate
     population_override: int = -1,  # pass to validate
     access_rate_override: float = -1.0,  # pass to validate
+    calibration: bool = False,
 ) -> dict:
     """
     Create the configuration dictionary for the simulation. This function allows the user to set all the parameters in the .yml files used by MaSim.
@@ -901,7 +876,7 @@ def configure(
     )
     execution_control = asdict(params)
     execution_control["raster_db"] = create_raster_db(
-        country_code, calibration=False, age_distribution=age_distribution
+        country_code, calibration, age_distribution=age_distribution
     )
     execution_control["spatial_model"] = create_spatial_model(not calibration)
     execution_control["seasonal_info"] = create_seasonal_model(True, country_code)
@@ -914,9 +889,9 @@ def configure(
     execution_control["genotype_info"] = GENOTYPE_INFO
     execution_control["drug_db"] = DRUG_DB
     execution_control["therapy_db"] = THERAPY_DB
-    execution_control["strategy_db"] = STRATEGY_DB
+    execution_control["strategy_db"] = strategy_db
     execution_control["events"] = [
-        {"name": "turn_off_mutation", "info": [{"day": params.starting_date.strftime("%Y/%m/%d")}]}
+        {"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}
     ]
 
     return execution_control

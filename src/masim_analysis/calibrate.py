@@ -27,9 +27,10 @@ def generate_configuration_files(
     beta_values: list[float],
     birth_rate: float,
     death_rate: list[float],
-    initial_age_structure: list[float],
+    initial_age_structure: list[int],
     age_distribution: list[float],
     seasonality_file_name: str = "seasonality",
+    strategy_db: dict = configure.STRATEGY_DB,
 ) -> None:
     """
     Generate configuration files for the given country code and date range for calibration.
@@ -62,13 +63,15 @@ def generate_configuration_files(
                     initial_age_structure,
                     age_distribution,
                     death_rate,
-                    start.strftime("%Y/%m/%d"),
-                    comparison.strftime("%Y/%m/%d"),
-                    end.strftime("%Y/%m/%d"),
+                    start,
+                    comparison,
+                    end,
+                    strategy_db,
                     f"{pop}_{access}_{beta}",
                     beta,
                     pop,
-                    access
+                    access,
+                    True
                 )
                 write_pixel_data_files(execution_control["raster_db"], pop)
                 output_path = os.path.join("conf", country_code, "calibration", f"cal_{pop}_{access}_{beta}.yml")
