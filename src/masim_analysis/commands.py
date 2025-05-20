@@ -101,6 +101,7 @@ def generate_job_file(
     job_name: str = "MyJob",
     cores_override: int = None,
     nodes_override: int = None,
+    email: str = None,
 ) -> None:
     # Get the number of lines in commands_filename
     with open(commands_filename, "r") as f:
@@ -126,6 +127,9 @@ def generate_job_file(
         f.write("#PBS -l walltime=48:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
         f.write("#PBS -q normal\n")
+        if email:
+            f.write(f"#PBS -m bae\n")
+            f.write(f"#PBS -M {email}\n")
         f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
         f.write("cd $PBS_O_WORKDIR\n")
         f.write(f"torque-launch {commands_filename}\n")
