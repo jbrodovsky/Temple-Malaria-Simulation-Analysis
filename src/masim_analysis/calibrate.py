@@ -6,6 +6,7 @@ from datetime import date
 from numpy.typing import NDArray
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import pandas as pd
 import seaborn as sns
 from ruamel.yaml import YAML
@@ -208,15 +209,6 @@ def process_missing_jobs(
                         continue
 
 
-def linear_fit(
-    populations: list[int] | NDArray,
-    access_rates: list[float] | NDArray,
-    beta_values: list[float] | NDArray,
-    means: pd.DataFrame,
-) -> plt.Figure:
-    pass
-
-
 def sigmoid_fit(x, a, b, c):
     return a / (1 + np.exp(-b * (x - c)))
 
@@ -246,7 +238,7 @@ def find_beta(pfpr_target, linear_model, popt, pfpr_cutoff):
 
 def plot_log_sigmoid(
     populations: list[int] | NDArray, access_rates: list[float] | NDArray, means: pd.DataFrame, model_map: dict
-) -> plt.Figure:
+) -> Figure:
     """
     Perform log-sigmoid regression on the given populations and access rates.
     Args:
@@ -282,7 +274,7 @@ def plot_log_sigmoid(
             # Plot data
             ax.set_xscale("log")
             sns.scatterplot(
-                x=group["beta"].values, y=group["pfpr2to10"].values / 100, ax=ax, label="Data", color="black"
+                x=group["beta"].values, y=group["pfpr2to10"].div(100).values, ax=ax, label="Data", color="black"
             )
             # Predictions
             popt = model_map[treatment_access][population]
@@ -299,15 +291,17 @@ def plot_log_sigmoid(
             ax.legend(fontsize=7)
     # Adjust layout
     plt.suptitle("Curve Fitting for beta vs pfpr2to10 by Population & Treatment Access", fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
     return fig
 
+
+from typing import Any, Optional
 
 def log_sigmoid_fit(
     populations: list[int] | NDArray,
     access_rates: list[float] | NDArray,
     means: pd.DataFrame,
-) -> tuple[plt.Figure, dict]:
+) -> dict[float, dict[int, Any]]:
     """
     Perform log-sigmoid regression on the given populations and access rates.
     Args:
@@ -329,8 +323,8 @@ def log_sigmoid_fit(
         for treatment_access in access_rates:
             # Filter the data for the current Population and TreatmentAccess
             group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
-            y = group["pfpr2to10"].values / 100
-            X = np.log10(group["beta"].values)
+            y = group["pfpr2to10"].to_numpy() / 100
+            X = np.log10(group["beta"].to_numpy())
 
             # X = group["beta"].values  # Log of Predictor (Beta)
             # y = group["pfpr2to10"].values  # Response variable
@@ -375,117 +369,117 @@ def log_sigmoid_fit(
     return models_map
 
 
-def _log_sigmoid_fit(
-    populations: list[int] | NDArray,
-    access_rates: list[float] | NDArray,
-    means: pd.DataFrame,
-) -> tuple[plt.Figure, dict]:
-    """
-    Perform log-sigmoid regression on the given populations and access rates.
-    Args:
-        populations (list[int] | NDArray): List of populations.
-        access_rates (list[float] | NDArray): List of access rates.
-        means (pd.DataFrame): DataFrame containing the means with the following
-            columns: ['population', 'access_rate', 'pfpr2to10_mean', 'beta'].
-    Returns:
-        tuple: A tuple containing the figure and a dictionary of models.
-    """
-    # Determine grid size
-    num_rows = len(populations)
-    num_cols = len(access_rates)
+# def _log_sigmoid_fit(
+#     populations: list[int] | NDArray,
+#     access_rates: list[float] | NDArray,
+#     means: pd.DataFrame,
+# ) -> tuple[plt.Figure, dict]:
+#     """
+#     Perform log-sigmoid regression on the given populations and access rates.
+#     Args:
+#         populations (list[int] | NDArray): List of populations.
+#         access_rates (list[float] | NDArray): List of access rates.
+#         means (pd.DataFrame): DataFrame containing the means with the following
+#             columns: ['population', 'access_rate', 'pfpr2to10_mean', 'beta'].
+#     Returns:
+#         tuple: A tuple containing the figure and a dictionary of models.
+#     """
+#     # Determine grid size
+#     num_rows = len(populations)
+#     num_cols = len(access_rates)
+# 
+#     # Create subplots grid
+#     fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows), sharex=True, sharey=True)
+# 
+#     # Ensure axes is always a 2D list for consistency
+#     if num_rows == 1:
+#         axes = np.array([axes])  # Convert to 2D array
+#     if num_cols == 1:
+#         axes = np.array([[ax] for ax in axes])  # Convert to 2D array
+# 
+#     # Define cutoff based on pfpr2to10_mean
+#     pfpr_cutoff = 0.0  # Set the desired cutoff for pfpr2to10_mean
+#     models_map = {
+#         access_rate: {population: None for population in populations} for access_rate in access_rates
+#     }  # stores trained model for every parameter configuration
+# 
+#     # Perform regression for each (Population, TreatmentAccess) group
+#     for i, population in enumerate(populations):
+#         for j, treatment_access in enumerate(access_rates):
+#             ax = axes[i, j]  # Select subplot location
+# 
+#             # Filter the data for the current Population and TreatmentAccess
+#             # group = df_final[(df_final['Population'] == population) & (df_final['TreatmentAccess'] == treatment_access)]
+#             group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
+#             group["pfpr2to10"] = group["pfpr2to10"].values / 100
+#             group["beta"] = np.log10(group["beta"].values)
+# 
+#             if group.empty:
+#                 ax.set_visible(False)  # Hide empty plots
+#                 continue
+# 
+#             X = group["beta"].values  # Log of Predictor (Beta)
+#             y = group["pfpr2to10"].values  # Response variable
+# 
+#             # Determine cutoff Beta based on pfpr2to10_mean
+#             if any(y < pfpr_cutoff):
+#                 cutoff_beta = np.max(X[y < pfpr_cutoff])  # Largest Beta where pfpr2to10_mean <= cutoff
+#             else:
+#                 cutoff_beta = float("-inf")  # No cutoff
+# 
+#             # Sigmoid Regression on data after cutoff
+#             mask_sigmoid = X.ravel() >= cutoff_beta
+# 
+#             if np.sum(mask_sigmoid) > 1:
+#                 X_sigmoid = X[mask_sigmoid].flatten()
+#                 y_sigmoid = y[mask_sigmoid]
+#                 try:
+#                     popt, _ = curve_fit(sigmoid_fit, X_sigmoid, y_sigmoid, maxfev=10000)
+#                 except TypeError as e:
+#                     print(
+#                         f"Error in curve_fit: {e} for population {population} and treatment access {treatment_access}"
+#                     )
+#                     popt = None
+#                     continue
+#                 except ValueError as e:
+#                     print(
+#                         f"Error in curve_fit: {e} for population {population} and treatment access {treatment_access}"
+#                     )
+#                     popt = None
+#                     continue
+#             else:
+#                 popt = None
+# 
+#             models_map[treatment_access][population] = popt  # (linear_model, popt)
+# 
+#             # Predictions
+#             pfpr_targets = np.linspace(0, 1, 100).reshape(-1, 1)
+#             # pfpr_targets = np.linspace(0.01, 1, 99).reshape(-1, 1) # To avoid divide by 0 error
+# 
+#             X_plot = find_beta(pfpr_targets, None, popt, pfpr_cutoff)
+# 
+#             # X_plot = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+# 
+#             ax.set_xscale("log")
+# 
+#             # sns.scatterplot(x=np.exp(group['Beta']), y=group['pfpr2to10_mean'], ax=ax, label="Data", color='black')
+#             sns.scatterplot(x=10 ** (group["beta"]), y=group["pfpr2to10"], ax=ax, label="Data", color="black")
+#             ax.plot(X_plot, pfpr_targets, color="red")
+# 
+#             # Titles & Labels
+#             ax.set_title(f"Pop {population}, Access {treatment_access}")
+#             if j == 0:
+#                 ax.set_ylabel("pfpr2to10_mean")  # Label only on first column
+#             if i == num_rows - 1:
+#                 ax.set_xlabel("Beta")  # Label only on last row
+#             ax.legend(fontsize=7)
+#         # Adjust layout
+#         plt.suptitle("Curve Fitting for beta vs pfpr2to10 by Population & Treatment Access", fontsize=16)
+#         plt.tight_layout(rect=[0, 0, 1, 0.96])
+#         return fig, models_map
 
-    # Create subplots grid
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows), sharex=True, sharey=True)
 
-    # Ensure axes is always a 2D list for consistency
-    if num_rows == 1:
-        axes = np.array([axes])  # Convert to 2D array
-    if num_cols == 1:
-        axes = np.array([[ax] for ax in axes])  # Convert to 2D array
-
-    # Define cutoff based on pfpr2to10_mean
-    pfpr_cutoff = 0.0  # Set the desired cutoff for pfpr2to10_mean
-    models_map = {
-        access_rate: {population: None for population in populations} for access_rate in access_rates
-    }  # stores trained model for every parameter configuration
-
-    # Perform regression for each (Population, TreatmentAccess) group
-    for i, population in enumerate(populations):
-        for j, treatment_access in enumerate(access_rates):
-            ax = axes[i, j]  # Select subplot location
-
-            # Filter the data for the current Population and TreatmentAccess
-            # group = df_final[(df_final['Population'] == population) & (df_final['TreatmentAccess'] == treatment_access)]
-            group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
-            group["pfpr2to10"] = group["pfpr2to10"].values / 100
-            group["beta"] = np.log10(group["beta"].values)
-
-            if group.empty:
-                ax.set_visible(False)  # Hide empty plots
-                continue
-
-            X = group["beta"].values  # Log of Predictor (Beta)
-            y = group["pfpr2to10"].values  # Response variable
-
-            # Determine cutoff Beta based on pfpr2to10_mean
-            if any(y < pfpr_cutoff):
-                cutoff_beta = np.max(X[y < pfpr_cutoff])  # Largest Beta where pfpr2to10_mean <= cutoff
-            else:
-                cutoff_beta = float("-inf")  # No cutoff
-
-            # Sigmoid Regression on data after cutoff
-            mask_sigmoid = X.ravel() >= cutoff_beta
-
-            if np.sum(mask_sigmoid) > 1:
-                X_sigmoid = X[mask_sigmoid].flatten()
-                y_sigmoid = y[mask_sigmoid]
-                try:
-                    popt, _ = curve_fit(sigmoid_fit, X_sigmoid, y_sigmoid, maxfev=10000)
-                except TypeError as e:
-                    print(
-                        f"Error in curve_fit: {e} for population {population} and treatment access {treatment_access}"
-                    )
-                    popt = None
-                    continue
-                except ValueError as e:
-                    print(
-                        f"Error in curve_fit: {e} for population {population} and treatment access {treatment_access}"
-                    )
-                    popt = None
-                    continue
-            else:
-                popt = None
-
-            models_map[treatment_access][population] = popt  # (linear_model, popt)
-
-            # Predictions
-            pfpr_targets = np.linspace(0, 1, 100).reshape(-1, 1)
-            # pfpr_targets = np.linspace(0.01, 1, 99).reshape(-1, 1) # To avoid divide by 0 error
-
-            X_plot = find_beta(pfpr_targets, None, popt, pfpr_cutoff)
-
-            # X_plot = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
-
-            ax.set_xscale("log")
-
-            # sns.scatterplot(x=np.exp(group['Beta']), y=group['pfpr2to10_mean'], ax=ax, label="Data", color='black')
-            sns.scatterplot(x=10 ** (group["beta"]), y=group["pfpr2to10"], ax=ax, label="Data", color="black")
-            ax.plot(X_plot, pfpr_targets, color="red")
-
-            # Titles & Labels
-            ax.set_title(f"Pop {population}, Access {treatment_access}")
-            if j == 0:
-                ax.set_ylabel("pfpr2to10_mean")  # Label only on first column
-            if i == num_rows - 1:
-                ax.set_xlabel("Beta")  # Label only on last row
-            ax.legend(fontsize=7)
-        # Adjust layout
-        plt.suptitle("Curve Fitting for beta vs pfpr2to10 by Population & Treatment Access", fontsize=16)
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
-        return fig, models_map
-
-
-def get_beta(models_map: dict[dict[list]], access_rate: float, population: int, pfpr: float) -> float:
+def get_beta(models_map: dict[float, dict[int, list[float]]], access_rate: float, population: int, pfpr: float) -> float:
     """
     Get the beta value for a given access rate, population, and pfpr target
     """
@@ -500,9 +494,9 @@ def get_beta(models_map: dict[dict[list]], access_rate: float, population: int, 
         # print(f"Population key index: {population_key}")
         if type(population_key) is list:
             if len(population_key) > 0:
-                population = populations[population_key[-1]]
+                population = int(populations[population_key[-1]])
         else:
-            population = populations[population_key]
+            population = int(populations[population_key])
     # print(f"Population key: {population}")
     # Get the model
     try:
@@ -538,7 +532,7 @@ def load_beta_model(filename: str) -> dict:
 
 
 def create_beta_map(
-    models_map: dict[dict[list]], population_raster: NDArray, access_rate_raster: NDArray, prevalence_raster: NDArray
+    models_map: dict[float, dict[int, list[float]]], population_raster: NDArray, access_rate_raster: NDArray, prevalence_raster: NDArray
 ) -> NDArray:
     """
     Create a beta map based on the population, access rate and prevalence rasters
