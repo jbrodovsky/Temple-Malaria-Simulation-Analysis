@@ -159,7 +159,7 @@ GENOTYPE_INFO = {
 DRUG_DB = {
     # Artemisinin
     0: {
-        "name": "ART", # or sometimes AR
+        "name": "ART",  # or sometimes AR
         "half_life": 0.0,
         "maximum_parasite_killing_rate": 0.999,
         "n": 25,
@@ -833,9 +833,12 @@ def create_raster_db(
         "p_treatment_for_more_than_5_by_location": [access_rate],
     }
     if calibration:
+        if beta < 0.0:
+            raise ValueError("Beta value must be greater than zero for calibration.")
+
         raster_db["beta_by_location"] = [beta]
     else:
-        raster_db["beta_by_location"] = [0.5]
+        raster_db["beta_by_location"] = [-1.0]
         raster_db["beta_raster"] = os.path.join(data_root, f"{name}_beta.asc")
 
     return raster_db
@@ -861,10 +864,13 @@ def configure(
     """
     Create the configuration dictionary for the simulation. This function allows the user to set all the parameters in the .yml files used by MaSim.
     """
-    if calibration_str is not None and beta_override >= 0.0 and population_override > 0 and access_rate_override >= 0.0:
-        calibration = True
-    else:
-        calibration = False
+    # if calibration_str is not None and beta_override >= 0.0 and population_override > 0 and access_rate_override >= 0.0:
+    #    calibration = True
+    # else:
+    #    calibration = False
+    if calibration:
+        assert calibration_str is not None, "Calibration string must be provided for calibration mode."
+        assert beta_override >= 0.0, "Beta override must be greater than or equal to zero for calibration mode."
 
     params = ConfigureParams(
         birth_rate=birth_rate,
@@ -876,7 +882,7 @@ def configure(
     )
     execution_control = asdict(params)
     execution_control["raster_db"] = create_raster_db(
-        country_code, calibration, age_distribution=age_distribution
+        country_code, calibration, calibration_str, access_rate_override, age_distribution, beta_override
     )
     execution_control["spatial_model"] = create_spatial_model(not calibration)
     execution_control["seasonal_info"] = create_seasonal_model(True, country_code)
@@ -890,8 +896,6 @@ def configure(
     execution_control["drug_db"] = DRUG_DB
     execution_control["therapy_db"] = THERAPY_DB
     execution_control["strategy_db"] = strategy_db
-    execution_control["events"] = [
-        {"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}
-    ]
+    execution_control["events"] = [{"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}]
 
     return execution_control
