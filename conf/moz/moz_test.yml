@@ -91,6 +91,7 @@ update_frequency: 7
 allow_new_coinfection_to_cause_symtoms: true
 using_free_recombination: true
 tf_window_size: 60
+- 0.02
 tf_testing_day: 28
 fraction_mosquitoes_interrupted_feeding: 0.0
 inflation_factor: 0.01
@@ -783,7 +784,7 @@ events:
   - day: 2011/01/01
 - name: 2011_strategy
   info:
-  - day: 2011/01/01
+  - day: 2011/01/02
     strategy_id: 0
 - name: 2015_strategy
   info:
