@@ -109,8 +109,8 @@ sd_prob_individual_present_at_mda:
 - 0.3
 - 0.3
 raster_db:
-  population_raster: data/moz/calibration/moz_growth_validation_100000_population.asc
-  district_raster: data/moz/calibration/moz_growth_validation_100000_districts.asc
+  population_raster: data/moz/calibration/moz_growth_validation_1000000_population.asc
+  district_raster: data/moz/calibration/moz_growth_validation_1000000_districts.asc
   cell_size: 5
   pf_treatment_under5: data/moz/calibration/moz_treatmentseeking.asc
   pf_treatment_over5: data/moz/calibration/moz_treatmentseeking.asc
@@ -136,7 +136,7 @@ raster_db:
   p_treatment_for_more_than_5_by_location:
   - -1.0
   beta_by_location:
-  - 0.05
+  - 0.0
 spatial_model:
   name: Wesolowski
   Wesolowski:

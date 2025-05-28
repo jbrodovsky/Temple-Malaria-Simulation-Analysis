@@ -44,7 +44,7 @@ initial_age_structure:
 - 69
 - 100
 artificial_rescaling_of_population_size: 1.0
-birth_rate: 0.04052
+birth_rate: 0.0555
 death_rate_by_age_class:
 - 0.04814
 - 0.041605
@@ -136,7 +136,7 @@ raster_db:
   p_treatment_for_more_than_5_by_location:
   - -1.0
   beta_by_location:
-  - 0.05
+  - 0.0
 spatial_model:
   name: Wesolowski
   Wesolowski:
