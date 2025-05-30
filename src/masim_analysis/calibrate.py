@@ -4,12 +4,12 @@ import os
 from datetime import date
 from typing import Any, Optional
 
-from numpy.typing import NDArray
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.figure import Figure
+from numpy.typing import NDArray
 from ruamel.yaml import YAML
 
 # Curve Fitting (linear and polynomial regression models)
@@ -195,7 +195,7 @@ def process_missing_jobs(
                     try:
                         months = analysis.get_table(file, "monthlydata")
                         monthlysitedata = analysis.get_table(file, "monthlysitedata")
-                    except FileNotFoundError as e:
+                    except FileNotFoundError:
                         with open(f"missing_calibration_runs_{pop}.txt", "a") as f:
                             # f.write(f"{e}\n")
                             f.write(
@@ -510,7 +510,7 @@ def get_beta(
     # Get the model
     try:
         a, b, c = models_map[access_rate][population]
-    except TypeError as e:
+    except TypeError:
         coefs = models_map[access_rate][population]
         a = coefs[0]
         b = coefs[1]
@@ -525,7 +525,7 @@ def get_beta(
     # beta = find_beta(pfpr_target, None, model, 0.0)
     try:
         beta_log = c - (1 / b) * np.log(a / pfpr - 1)
-    except ZeroDivisionError as e:
+    except ZeroDivisionError:
         beta_log = 0
     beta = 10**beta_log
     if np.isnan(beta):

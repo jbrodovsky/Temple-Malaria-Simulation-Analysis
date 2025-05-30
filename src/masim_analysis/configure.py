@@ -3,9 +3,9 @@ Generate input configuration files for MaSim. This module provides functions to 
 """
 
 import os
+from dataclasses import asdict, dataclass, field
 from datetime import date
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from ruamel.yaml import YAML
 

@@ -5,6 +5,7 @@ Generate commands for MaSim
 import argparse
 import os
 from math import ceil, floor
+from typing import Optional
 
 NODE_MEMORY = 128  # GB
 NODE_CORES = 28  # Cores
@@ -65,7 +66,7 @@ def generate_commands(
 
 
 def batch_generate_command_jobs(
-    input_configuration_directory: list,
+    input_configuration_directory: str,
     output_directory: str,
     repetitions: int = 1,
 ) -> list[str]:
@@ -74,7 +75,7 @@ def batch_generate_command_jobs(
 
     Parameters
     ----------
-    input_configuration_directory : list
+    input_configuration_directory : str
         The input configuration directory, ex: ./input/rwa
     output_directory : str
         The output directory, ex: ./output/rwa
@@ -99,9 +100,9 @@ def batch_generate_command_jobs(
 def generate_job_file(
     commands_filename: str,
     job_name: str = "MyJob",
-    cores_override: int = None,
-    nodes_override: int = None,
-    email: str = None,
+    cores_override: Optional[int] = None,
+    nodes_override: Optional[int] = None,
+    email: Optional[str] = None,
 ) -> None:
     # Get the number of lines in commands_filename
     with open(commands_filename, "r") as f:
@@ -128,7 +129,7 @@ def generate_job_file(
         f.write(f"#PBS -N {job_name}\n")
         f.write("#PBS -q normal\n")
         if email:
-            f.write(f"#PBS -m bae\n")
+            f.write("#PBS -m bae\n")
             f.write(f"#PBS -M {email}\n")
         f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
         f.write("cd $PBS_O_WORKDIR\n")
