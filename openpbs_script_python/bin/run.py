@@ -1,5 +1,6 @@
-import time
 import math
+import time
+
 
 def main():
     start_time = time.time()
@@ -13,6 +14,7 @@ def main():
         x = 0.0
         for i in range(100000):
             x += math.sqrt(i) * math.sin(i)  # CPU-intensive floating point ops
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 
 from masim_analysis import configure
@@ -11,8 +12,7 @@ def plot_districts(
     country_name: str,
     fig_size: tuple[int, int] = (10, 10),
     loc=None,
-    bbox_to_anchor=(1.75, 1),
-) -> plt.Figure:
+) -> Figure:
     """
     Plot the distict mapping of the country according to the raster array.
     """
@@ -23,7 +23,7 @@ def plot_districts(
     # create legend handles
     handles = [Patch(color=cmap(i), label=labels[i + 1].replace("_", " ")) for i in range(11)]
     ax.legend(
-        bbox_to_anchor=bbox_to_anchor,
+        # bbox_to_anchor=bbox_to_anchor,
         handles=handles,
         title="Districts",
         loc=loc,
@@ -31,9 +31,7 @@ def plot_districts(
     return fig
 
 
-def plot_population(
-    population_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)
-) -> plt.Figure:
+def plot_population(population_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)) -> Figure:
     """
     Plot the population density of the country according to the raster array.
     """
@@ -44,9 +42,7 @@ def plot_population(
     return fig
 
 
-def plot_prevalence(
-    prevalence_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)
-) -> plt.Figure:
+def plot_prevalence(prevalence_raster: np.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)) -> Figure:
     """
     Plot the prevalence of malaria according to the raster array.
     """
@@ -54,9 +50,10 @@ def plot_prevalence(
     ax.imshow(prevalence_raster, cmap="coolwarm")
     ax.set_title(f"{country_name} Prevalence")
     fig.colorbar(plt.cm.ScalarMappable(cmap="coolwarm"), ax=ax, label="Prevalence")
+    return fig
 
 
-def read_raster(file: str) -> np.ndarray:
+def read_raster(file: str) -> tuple[np.ndarray, dict]:
     """
     Read in a raster file and return the raster array and metadata.
 
@@ -64,7 +61,7 @@ def read_raster(file: str) -> np.ndarray:
         file (str): Path to the raster file.
 
     Returns:
-        tuple: A tuple containing the raster array and metadata.
+        tuple: A tuple containing the raster array and metadata dictionary.
     """
     with open(file, "r") as f:
         data = f.read().splitlines()

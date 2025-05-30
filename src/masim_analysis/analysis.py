@@ -4,6 +4,7 @@ import sqlite3
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.figure import Figure
 
 table_names = [
     "monthlydata",
@@ -89,8 +90,7 @@ def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd
     # Get all files for the strategy
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
     if len(files) == 0:
-        print(f"No files found for strategy {strategy} in {path}")
-        return
+        raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
         print(f"Aggregating data for strategy {strategy} with {len(files)} files")
     summary = pd.DataFrame()
@@ -105,7 +105,7 @@ def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd
         for location in locations:
             location = int(location)
             failures = data.loc[data["locationid"] == location, ["monthlydataid", "failure_rate"]]
-            failures.index = failures["monthlydataid"]
+            failures = failures.set_index("monthlydataid")
             data_summary[location] = failures["failure_rate"]
         if locationid > 0:
             summary[file] = data_summary.sum(axis=1)
@@ -192,8 +192,7 @@ def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
         last_month = population_data.iloc[-1]["monthlydataid"]
         population_data = population_data.loc[population_data["monthlydataid"] == last_month]
     population_data = population_data[["locationid", "population", "infectedindividuals"]]
-    population_data.index = population_data["locationid"]
-    population_data = population_data.drop(columns="locationid")
+    population_data = population_data.set_index("locationid")
     return population_data
 
 
@@ -220,7 +219,7 @@ def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
         last_month = genome_data.iloc[-1]["monthlydataid"]
         genome_data = genome_data.loc[genome_data["monthlydataid"] == last_month]
     genome_data = genome_data[["locationid", "genomeid", "occurrences", "weightedoccurrences"]]
-    genome_data.index = genome_data["locationid"]
+    genome_data = genome_data.set_index("locationid")
     genome_data = genome_data.drop(columns="locationid")
     return genome_data
 
@@ -273,7 +272,9 @@ def get_resistant_genotypes(genomes: pd.DataFrame, allele: str) -> pd.DataFrame:
     return resistant_genotypes
 
 
-def calculate_resistant_genome_frequencies(file: str, allele: str, month: int = 0, locationid: int = -1) -> float:
+def calculate_resistant_genome_frequencies(
+    file: str, allele: str, month: int = 0, locationid: int = -1
+) -> pd.DataFrame:
     """
     Calculate the frequency or prevelance of drug resistant genotypes based on the presence of an allele that confers resistance.
 
@@ -284,7 +285,7 @@ def calculate_resistant_genome_frequencies(file: str, allele: str, month: int = 
     locationid (int): locationid to filter by, defaults to -1 which returns all locations
 
     Returns:
-    float: resistant genome prevelance
+    DataFrame: resistant genome prevelance
     """
     # Assert the file exists
     if not os.path.exists(file):
@@ -338,8 +339,7 @@ def aggregate_resistant_genome_frequencies(
     # Get all files for the strategy
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
     if len(files) == 0:
-        print(f"No files found for strategy {strategy} in {path}")
-        return
+        raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
         print(f"Aggregating data for strategy {strategy} with {len(files)} files")
     # Get the monthlysitedata table for the first file to set up aggregated data
@@ -388,8 +388,7 @@ def aggregate_resistant_genome_frequencies_by_month(
     """
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
     if len(files) == 0:
-        print(f"No files found for strategy {strategy} in {path}")
-        return
+        raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
         print(f"Aggregating data for strategy {strategy} with {len(files)} files")
 
@@ -408,9 +407,10 @@ def aggregate_resistant_genome_frequencies_by_month(
     return genome_frequencies
 
 
-def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> plt.Figure:
+def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figure:
     """
     Plots the treatment failure rate for a given strategy. If locationid is provided, only that location is plotted.
+    If more than one results file is found in the path, the data is aggregated.
     If more than one results file is found in the path, the data is aggregated.
 
     Args:
@@ -434,7 +434,7 @@ def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> plt.
     failures = pd.DataFrame()
     for file in results_files:
         data = get_table(file, "monthlysitedata")
-        data = calculate_treatment_failure_rate(data, locationid)
+        data = calculate_treatment_failure_rate(data)
         failures[file] = data["failure_rate"]
 
     if locationid > 0:
@@ -453,6 +453,7 @@ def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> plt.
     failures["mean"] = failures.mean(axis=1)
     fig, ax = plt.subplots()
     ax.plot(failures["monthlydataid"])
+    return fig
 
 
 def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: str = "H", locationid: int = -1):
