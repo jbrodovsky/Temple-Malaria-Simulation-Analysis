@@ -44,23 +44,23 @@ initial_age_structure:
 - 69
 - 100
 artificial_rescaling_of_population_size: 0.25
-birth_rate: 0.0312
+birth_rate: 0.0555
 death_rate_by_age_class:
-- 0.049744
-- 0.064331
-- 0.064331
-- 0.064331
-- 0.064331
-- 0.00359
-- 0.00361
-- 0.00365
-- 0.00379
-- 0.00379
-- 0.133
-- 0.133
-- 0.0174
-- 0.0174
-- 0.0174
+- 0.04814
+- 0.041605
+- 0.05207
+- 0.048057
+- 0.048057
+- 0.00497
+- 0.00497
+- 0.00497
+- 0.00497
+- 0.00354
+- 0.00354
+- 0.00758
+- 0.01113
+- 0.01113
+- 0.01113
 mortality_when_treatment_fail_by_age_class:
 - 0.04
 - 0.02
@@ -109,7 +109,7 @@ sd_prob_individual_present_at_mda:
 - 0.3
 - 0.3
 raster_db:
-  population_raster: data/moz/moz_population.asc
+  population_raster: data/moz/moz_initialpopulation.asc
   district_raster: data/moz/moz_districts.asc
   cell_size: 5
   pf_treatment_under5: data/moz/moz_treatmentseeking.asc
@@ -136,15 +136,15 @@ raster_db:
   p_treatment_for_more_than_5_by_location:
   - -1.0
   beta_by_location:
-  - 0.5
+  - -1.0
   beta_raster: data/moz/moz_beta.asc
 spatial_model:
   name: Wesolowski
   Wesolowski:
-    kappa: 0
-    alpha: 0
-    beta: 0
-    gamma: 0
+    kappa: 0.01093251
+    alpha: 0.22268982
+    beta: 0.14319618
+    gamma: 0.83741484
 seasonal_info:
   enable: true
   mode: rainfall

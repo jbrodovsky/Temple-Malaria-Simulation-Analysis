@@ -2,7 +2,7 @@
 import json
 import os
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from numpy.typing import NDArray
 import numpy as np
@@ -304,9 +304,6 @@ def plot_log_sigmoid(
     return fig
 
 
-from typing import Any, Optional
-
-
 def log_sigmoid_fit(
     populations: list[int] | NDArray,
     access_rates: list[float] | NDArray,
@@ -521,9 +518,15 @@ def get_beta(
     except KeyError as e:
         print(f"KeyError: {e} for access rate {access_rate} and population {population}")
         return np.nan
+    except ValueError as e:
+        print(f"ValueError: {e} for access rate {access_rate} and population {population}")
+        print(f"Recieved the following coefficients: {models_map[access_rate][population]}")
     # Get the beta value
     # beta = find_beta(pfpr_target, None, model, 0.0)
-    beta_log = c - (1 / b) * np.log(a / pfpr - 1)
+    try:
+        beta_log = c - (1 / b) * np.log(a / pfpr - 1)
+    except ZeroDivisionError as e:
+        beta_log = 0
     beta = 10**beta_log
     if np.isnan(beta):
         return 0
