@@ -823,7 +823,7 @@ def create_raster_db(
         pass
 
     raster_db = {
-        "population_raster": os.path.join(data_root, f"{name}{calibration_string}_population.asc"),
+        "population_raster": os.path.join(data_root, f"{name}{calibration_string}_initialpopulation.asc"),
         "district_raster": os.path.join(data_root, f"{name}{calibration_string}_districts.asc"),
         "cell_size": 5,
         "pf_treatment_under5": os.path.join(data_root, f"{name}_treatmentseeking.asc"),
@@ -884,7 +884,7 @@ def configure(
     execution_control["raster_db"] = create_raster_db(
         country_code, calibration, calibration_str, access_rate_override, age_distribution, beta_override
     )
-    execution_control["spatial_model"] = create_spatial_model(not calibration)
+    execution_control["spatial_model"] = create_spatial_model(calibration)
     execution_control["seasonal_info"] = create_seasonal_model(True, country_code)
     execution_control["parasite_density_level"] = asdict(parasite_density_level)
     execution_control["immune_system_information"] = asdict(immune_system_information)
