@@ -1,3 +1,10 @@
+"""
+Analysis tools for MaSim outputs.
+
+This module provides functions for interacting with MaSim simulation output
+databases, performing data analysis, and generating plots.
+"""
+
 import glob
 import os
 import sqlite3
@@ -18,13 +25,17 @@ table_names = [
 # Database tools -----------------------------------------------------------------------------
 def get_all_tables(db: str) -> list:
     """
-    Get all tables in a sqlite3 database
+    Get all tables in a sqlite3 database.
 
-    Args:
-    db (str): path to sqlite3 database
+    Parameters
+    ----------
+    db : str
+        Path to sqlite3 database.
 
-    Returns:
-    list: list of tables in the database
+    Returns
+    -------
+    list
+        List of tables in the database.
     """
     # Validate input file path
     if not os.path.exists(db):
@@ -39,18 +50,23 @@ def get_all_tables(db: str) -> list:
 
 def get_table(db: str, table: str) -> pd.DataFrame:
     """
-    Get a table from a sqlite3 database
+    Get a table from a sqlite3 database.
 
-    Args:
-    db (str): path to sqlite3 database
-    table (str): name of table to get
+    Parameters
+    ----------
+    db : str
+        Path to sqlite3 database.
+    table : str
+        Name of table to get.
 
-    Returns:
-    pd.DataFrame: table as a pandas DataFrame
+    Returns
+    -------
+    pd.DataFrame
+        Table as a pandas DataFrame.
     """
     # Validate input file path
     if not os.path.exists(db):
-        raise FileNotFoundError(f"File not found: {db}")
+        raise FileNotFoundError(f"Database file not found: {db}")
     with sqlite3.connect(db) as conn:
         df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
 
@@ -60,13 +76,17 @@ def get_table(db: str, table: str) -> pd.DataFrame:
 # Data analysis tools -----------------------------------------------------------------------
 def calculate_treatment_failure_rate(data: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate treatment failures for a given table
+    Calculate treatment failures for a given table.
 
-    Args:
-    data (DataFrame): monthlysitedata table to calculate treatment failures
+    Parameters
+    ----------
+    data : pd.DataFrame
+        monthlysitedata table to calculate treatment failures.
 
-    Returns:
-    pd.DataFrame: table with treatment failures
+    Returns
+    -------
+    pd.DataFrame
+        Table with treatment failures.
     """
     # Calculate treatment failures
     data["failure_rate"] = data["treatmentfailures"] / data["treatments"]
@@ -75,42 +95,43 @@ def calculate_treatment_failure_rate(data: pd.DataFrame) -> pd.DataFrame:
 
 def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd.DataFrame:
     """
-    Aggregate failure rate data by strategy. This function searchs path for all the result
+    Aggregate failure rate data by strategy. This function searches path for all the result
     files for the given strategy and aggregates them.
 
-    Args:
-    path (str): path to search for result files
-    strategy (str): strategy to aggregate data for
-    locationid (int): locationid to filter by, defaults to 0 which returns all locations
+    Parameters
+    ----------
+    path : str
+        Path to search for result files.
+    strategy : str
+        Strategy to aggregate data for.
+    locationid : int, optional
+        locationid to filter by, defaults to 0 which returns all locations.
 
-    Returns:
-    pd.DataFrame: aggregated data
-    pd.Series: monthlydataid column
+    Returns
+    -------
+    pd.DataFrame
+        Aggregated data.
     """
     # Get all files for the strategy
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
     if len(files) == 0:
         raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
-        print(f"Aggregating data for strategy {strategy} with {len(files)} files")
+        print(f"Found {len(files)} files for strategy {strategy}")
     summary = pd.DataFrame()
     for file in files:
-        data = get_table(file, "monthlysitedata")
-        data = calculate_treatment_failure_rate(data)
-        if locationid > 0:
-            data = data[data["locationid"] == locationid]
-        months = data["monthlydataid"].unique()
-        locations = data["locationid"].unique()
-        data_summary = pd.DataFrame(index=months, columns=locations)
-        for location in locations:
-            location = int(location)
-            failures = data.loc[data["locationid"] == location, ["monthlydataid", "failure_rate"]]
-            failures = failures.set_index("monthlydataid")
-            data_summary[location] = failures["failure_rate"]
-        if locationid > 0:
-            summary[file] = data_summary.sum(axis=1)
-        else:
-            summary[file] = data_summary.mean(axis=1)
+        try:
+            monthlysitedata = get_table(file, "monthlysitedata")
+            if locationid != 0:
+                monthlysitedata = monthlysitedata[monthlysitedata["locationid"] == locationid]
+            monthlysitedata = calculate_treatment_failure_rate(monthlysitedata)
+            # Use the filename (without extension and path) as the column name for this run's failure rate
+            col_name = os.path.splitext(os.path.basename(file))[0]
+            summary[col_name] = monthlysitedata.groupby("monthlydataid")["failure_rate"].sum()
+        except Exception as e:
+            print(f"Error processing file {file}: {e}")
+            continue  # Skip to the next file if an error occurs
+
     summary["mean"] = summary.mean(axis=1)
     summary["median"] = summary.median(axis=1)
     summary["95th"] = summary.quantile(axis=1, q=0.95)
@@ -125,32 +146,44 @@ def save_aggregated_data(
     path: str,
 ):
     """
-    Save aggregated data to a file
+    Save aggregated data to a file.
 
-    Args:
-    monthlysitedata (dict[str, pd.DataFrame]): aggregated data
-    monthlydataid (pd.Series): monthlydataid column
-    strategy (str): strategy
-    path (str): path to save the file
+    Parameters
+    ----------
+    monthlysitedata : dict[str, pd.DataFrame]
+        Aggregated data.
+    monthlydataid : pd.Series
+        monthlydataid column.
+    strategy : str
+        Strategy name.
+    path : str
+        Path to save the file.
     """
     with sqlite3.connect(os.path.join(path, f"{strategy}_aggregated.db")) as conn:
-        for column in monthlysitedata.keys():
-            monthlysitedata[column].to_sql(column, conn, index=False)
-        monthlydataid.to_sql("monthlydataid", conn, index=False)
+        for key, df in monthlysitedata.items():
+            df_to_save = df.copy()
+            if "monthlydataid" not in df_to_save.columns and monthlydataid is not None:
+                df_to_save["monthlydataid"] = monthlydataid
+            df_to_save.to_sql(key, conn, if_exists="replace", index=False)
 
 
 def plot_strategy_treatment_failure(data: pd.DataFrame, strategy: str, figsize: tuple = (18, 3)):
     """
-    Plot treatment failure rate for a given strategy
+    Plot treatment failure rate for a given strategy.
 
-    Args:
-        data (pd.DataFrame): treatement failure data to plot from aggregate_failure_rates
-        months (pd.DataFrame): months for the data
-        strategy (str): strategy to plot
-        figsize (tuple): figure size
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Treatment failure data to plot from aggregate_failure_rates.
+    strategy : str
+        Strategy to plot.
+    figsize : tuple, optional
+        Figure size, by default (18, 3).
 
-    Returns:
-        tuple: figure and axis
+    Returns
+    -------
+    tuple
+        A tuple containing the matplotlib Figure and Axes objects.
     """
     fig, ax = plt.subplots(figsize=figsize)
     # ax.plot(months / 12, data['failure_rate']['mean'], label='Mean')
@@ -173,14 +206,19 @@ def plot_strategy_treatment_failure(data: pd.DataFrame, strategy: str, figsize: 
 
 def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
     """
-    Get the population data for a given file and month
+    Get population data from a MaSim output database.
 
-    Args:
-    file (str): path to sqlite3 database
-    month (int): month to filter by, defaults to -1 which returns the last month
+    Parameters
+    ----------
+    file : str
+        Path to the MaSim output database (.db file).
+    month : int, optional
+        Month to get data for. Defaults to -1 (all months).
 
-    Returns:
-    pd.DataFrame: population data
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing population data.
     """
     # Assert the file exists
     if not os.path.exists(file):
@@ -198,14 +236,19 @@ def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
 
 def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
     """
-    Get the genome data for a given file and month
+    Get genome data from a MaSim output database.
 
-    Args:
-    file (str): path to sqlite3 database
-    month (int): month to filter by, defaults to -1 which returns the last month
+    Parameters
+    ----------
+    file : str
+        Path to the MaSim output database (.db file).
+    month : int, optional
+        Month to get data for. Defaults to -1 (all months).
 
-    Returns:
-    pd.DataFrame: genome data
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing genome data.
     """
     # Assert the file exists
     if not os.path.exists(file):
@@ -226,14 +269,19 @@ def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
 
 def calculate_genome_frequencies(file: str, month: int = -1) -> pd.DataFrame:
     """
-    Calculate the genome frequencies
+    Calculate genome frequencies from a MaSim output database.
 
-    Args:
-    file (str): path to sqlite3 database
-    month (int): month to filter by, defaults to -1 which returns the last month
+    Parameters
+    ----------
+    file : str
+        Path to the MaSim output database (.db file).
+    month : int, optional
+        Month to get data for. Defaults to -1 (all months).
 
-    Returns:
-    pd.DataFrame: genome frequency data
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing genome frequencies.
     """
     # Assert the file exists
     if not os.path.exists(file):
@@ -258,15 +306,19 @@ def calculate_genome_frequencies(file: str, month: int = -1) -> pd.DataFrame:
 
 def get_resistant_genotypes(genomes: pd.DataFrame, allele: str) -> pd.DataFrame:
     """
-    Get the genotypes that are resistant to an arbitrary drug by selecting
-    genotypes that contain the allele that confers resistance.
+    Filter resistant genotypes from a DataFrame of genome data.
 
-    Args:
-    genomes (pd.DataFrame): genotype data
-    allele (str): allele to filter by
+    Parameters
+    ----------
+    genomes : pd.DataFrame
+        DataFrame containing genome data (typically from get_genome_data).
+    allele : str
+        Allele to consider for resistance.
 
-    Returns:
-    pd.DataFrame: resistant genotypes
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing only resistant genotypes.
     """
     resistant_genotypes = genomes.loc[genomes["name"].str.contains(allele)]
     return resistant_genotypes
@@ -276,16 +328,23 @@ def calculate_resistant_genome_frequencies(
     file: str, allele: str, month: int = 0, locationid: int = -1
 ) -> pd.DataFrame:
     """
-    Calculate the frequency or prevelance of drug resistant genotypes based on the presence of an allele that confers resistance.
+    Calculate resistant genome frequencies from a MaSim output database.
 
-    Args:
-    file (str): path to sqlite3 database
-    allele (str): allele to filter by, defaults to 'H'
-    month (int): month to filter by, defaults to -1 which returns the last month
-    locationid (int): locationid to filter by, defaults to -1 which returns all locations
+    Parameters
+    ----------
+    file : str
+        Path to the MaSim output database (.db file).
+    allele : str
+        Allele to consider for resistance.
+    month : int, optional
+        Month to get data for. Defaults to 0 (first month).
+    locationid : int, optional
+        Location ID to filter by. Defaults to -1 (all locations).
 
-    Returns:
-    DataFrame: resistant genome prevelance
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing resistant genome frequencies.
     """
     # Assert the file exists
     if not os.path.exists(file):
@@ -326,15 +385,25 @@ def aggregate_resistant_genome_frequencies(
     path: str, strategy: str, allele: str = "H", month: int = -1, locationid: int = -1
 ) -> list:
     """
-    Aggregate genome frequencies for a given strategy
+    Aggregate resistant genome frequencies across multiple simulation runs for a strategy.
 
-    Args:
-    path (str): path to search for result files
-    strategy (str): strategy to aggregate data for
-    locationid (int): locationid to filter by
+    Parameters
+    ----------
+    path : str
+        Path to search for result files.
+    strategy : str
+        Strategy to aggregate data for.
+    allele : str, optional
+        Allele to consider for resistance, by default "H".
+    month : int, optional
+        Month to get data for. Defaults to -1 (all months).
+    locationid : int, optional
+        Location ID to filter by. Defaults to -1 (all locations).
 
-    Returns:
-    list: aggregated genome frequencies
+    Returns
+    -------
+    list
+        List of DataFrames, each containing resistant genome frequencies for a run.
     """
     # Get all files for the strategy
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
@@ -376,15 +445,23 @@ def aggregate_resistant_genome_frequencies_by_month(
     path: str, strategy: str, allele: str = "H", locationid: int = -1
 ) -> pd.DataFrame:
     """
-    Aggregate genome frequencies for a given strategy on a monthly basis for a time-series analysis
+    Aggregate resistant genome frequencies by month across multiple simulation runs.
 
-    Args:
-    path (str): path to search for result files
-    strategy (str): strategy to aggregate data for
-    locationid (int): locationid to filter by, defaults to -1 which returns all locations
+    Parameters
+    ----------
+    path : str
+        Path to search for result files.
+    strategy : str
+        Strategy to aggregate data for.
+    allele : str, optional
+        Allele to consider for resistance, by default "H".
+    locationid : int, optional
+        Location ID to filter by. Defaults to -1 (all locations).
 
-    Returns:
-    DataFrame: aggregated genome frequencies
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing aggregated resistant genome frequencies by month.
     """
     files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
     if len(files) == 0:
@@ -409,17 +486,21 @@ def aggregate_resistant_genome_frequencies_by_month(
 
 def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figure:
     """
-    Plots the treatment failure rate for a given strategy. If locationid is provided, only that location is plotted.
-    If more than one results file is found in the path, the data is aggregated.
-    If more than one results file is found in the path, the data is aggregated.
+    Plot aggregated results for a given strategy.
 
-    Args:
-    path (str): path to directory containing results files
-    strategy (str): strategy to plot
-    locationid (int): locationid to filter by
+    Parameters
+    ----------
+    path : str
+        Path to search for result files.
+    strategy : str
+        Strategy to plot results for.
+    locationid : int, optional
+        Location ID to filter by, by default 0 (all locations).
 
-    Returns:
-    plt.Figure: matplotlib figure
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The matplotlib Figure object containing the plot.
     """
     # Assert that the location is valid
     if locationid < 0:
@@ -458,16 +539,18 @@ def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figu
 
 def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: str = "H", locationid: int = -1):
     """
-    Plots the treatment failure rate and the frequency of drug resistant genotypes for a given strategy
+    Plot combined aggregated results for a strategy, including treatment failure and resistant genome frequencies.
 
-    Args:
-    path (str): path to directory containing results files
-    strategy (str): strategy to plot
-    allele (str): allele to filter by, defaults to 'H'
-    locationid (int): locationid to filter by, defaults to -1 which returns all locations
-
-    Returns:
-    plt.Figure: matplotlib figure
+    Parameters
+    ----------
+    path : str
+        Path to search for result files.
+    strategy : str
+        Strategy to plot results for.
+    allele : str, optional
+        Allele to consider for resistance in genome frequency plots, by default "H".
+    locationid : int, optional
+        Location ID to filter by. Defaults to -1 (all locations).
     """
     # Assert that the location is valid
     if locationid < 0:
@@ -524,5 +607,9 @@ def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: 
 
 
 def main():
+    """
+    Main function for analysis script (if run as standalone).
+    Placeholder for potential command-line interface or primary execution logic.
+    """
     print("MASIM ANALYSIS MODULE")
     # TODO: Add main function that standardizes the output
