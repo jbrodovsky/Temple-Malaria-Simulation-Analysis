@@ -1,5 +1,8 @@
 """
-Generate input configuration files for MaSim. This module provides functions to generate input configuration YAML files for MaSim. This should be used to generate the appropriate strategy input files and calibration files.
+MaSim Configuration Generation.
+
+This module provides functions to generate input configuration YAML files for MaSim.
+It is used to create appropriate strategy input files and calibration files.
 """
 
 import os
