@@ -867,10 +867,6 @@ def configure(
     """
     Create the configuration dictionary for the simulation. This function allows the user to set all the parameters in the .yml files used by MaSim.
     """
-    # if calibration_str is not None and beta_override >= 0.0 and population_override > 0 and access_rate_override >= 0.0:
-    #    calibration = True
-    # else:
-    #    calibration = False
     if calibration:
         assert calibration_str is not None, "Calibration string must be provided for calibration mode."
         assert beta_override >= 0.0, "Beta override must be greater than or equal to zero for calibration mode."
