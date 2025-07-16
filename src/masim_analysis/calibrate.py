@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy
-from numpy.typing import NDArray
+from numpy.typing import NDArray, ArrayLike
 import pandas
 import seaborn as sns
 from matplotlib.figure import Figure
@@ -305,7 +305,7 @@ def process_missing_jobs(
                         continue
 
 
-def sigmoid_fit(x, a, b, c):
+def sigmoid(x, a, b, c):
     """
     Sigmoid function for curve fitting.
 
@@ -328,6 +328,161 @@ def sigmoid_fit(x, a, b, c):
         The calculated y-values of the sigmoid function.
     """
     return a / (1 + numpy.exp(-b * (x - c)))
+
+
+def inverse_sigmoid(y, a, b, c):
+    """
+    Inverse sigmoid function for prediction.
+
+    Equation: x = c - (1 / b) * log(a / y - 1)
+
+    Parameters
+    ----------
+    x : array_like
+        The dependent variable (y-values).
+    a : float
+        The maximum value (amplitude) of the sigmoid.
+    b : float
+        The steepness of the sigmoid curve.
+    c : float
+        The x-value of the sigmoid's midpoint.
+
+    Returns
+    -------
+    array_like
+        The calculated x-values of the inverse sigmoid function.
+    """
+    return c - (1 / b) * numpy.log(a / y - 1)
+
+
+def fit_log_sigmoid_model(
+    betas: ArrayLike,
+    pfpr: ArrayLike,
+    pfpr_cutoff: float = 0.0,
+) -> NDArray[numpy.float64]:
+    """
+    Fit sigmoid models to calibration data for different populations and treatment access rates.
+
+    This function performs a log-sigmoid regression on the calibration data,
+    fitting a model to the relationship between log-transformed Beta values
+    and PfPR (Plasmodium falciparum parasite rate) for each combination of
+    population and treatment access rate.
+
+    Parameters
+    ----------
+    populations : list[int] | numpy.typing.NDArray
+        List of unique population values for which to fit the model.
+    treatment_rate : list[float] | numpy.typing.NDArray
+        List of unique treatment access rates for which to fit the model.
+
+    Returns
+    -------
+    dict[float, dict[int, typing.Any]]
+        A nested dictionary where the outer keys are access rates, inner keys are
+        populations, and values are the parameters (e.g., from `scipy.optimize.curve_fit`)
+        of the fitted log-sigmoid model for that combination.
+    """
+    # X = beta"].values
+    # y = group["pfpr2to10"].values
+
+    # Convert betas and pfpr to numpy arrays for element-wise operations
+    betas = numpy.array(betas)
+    pfpr = numpy.array(pfpr)
+
+    # Determine cutoff Beta based on pfpr2to10_mean
+    if numpy.any(pfpr < pfpr_cutoff):
+        cutoff_beta_val = numpy.max(betas[pfpr < pfpr_cutoff])  # Largest Beta where pfpr2to10_mean <= cutoff
+        X_filtered = numpy.log(betas[betas < cutoff_beta_val])
+        y_filtered = pfpr[betas < cutoff_beta_val]
+    else:
+        X_filtered = numpy.log(betas)
+        y_filtered = pfpr / 100
+
+    if len(X_filtered) < 3:  # Check if enough data points for regression
+        print(f"Not enough data points for regression: {len(X_filtered)} points found.")
+        return numpy.empty(0)
+    try:
+        # Perform sigmoid regression
+        popt, _ = curve_fit(
+            sigmoid,
+            X_filtered,
+            y_filtered,
+            maxfev=5000,
+        )
+        return numpy.array(popt)  # Store parameters
+
+    except RuntimeError:
+        print("Curve fitting failed to converge. Not enough data points or poor initial guess.")
+        return numpy.empty(0)  # Or handle error as needed
+    except TypeError:  # Handle cases where curve_fit might receive empty arrays from p0 logic
+        print("TypeError: Invalid input types for curve fitting. Ensure betas and pfpr are numeric arrays.")
+        return numpy.empty(0)
+
+
+def get_beta_models(
+    populations: list[int],
+    access_rates: list[float],
+    means: pandas.DataFrame,
+    pfpr_cutoff: float = 0.0,
+) -> dict[float, dict[int, list[float]]]:
+    """
+    Perform log-sigmoid regression on calibration data.
+
+    This function fits a sigmoid model to the relationship between
+    log-transformed Beta values and PfPR (Plasmodium falciparum parasite rate)
+    for different combinations of population and treatment access rates.
+
+    Parameters
+    ----------
+    populations : list[int] | numpy.typing.NDArray
+        List of unique population values for which to fit the model.
+    access_rates : list[float] | numpy.typing.NDArray
+        List of unique treatment access rates for which to fit the model.
+    means : pandas.DataFrame
+        A DataFrame containing the mean PfPR and Beta values from calibration runs.
+        It must include columns: 'population', 'access_rate', 'pfpr2to10', and 'beta'.
+        'pfpr2to10' should be the mean PfPR in 2-10 year olds.
+        'beta' is the transmission parameter.
+
+    Returns
+    -------
+    dict[float, dict[int, typing.Any]]
+        A nested dictionary where the outer keys are access rates, inner keys are
+        populations, and values are the parameters (e.g., from `scipy.optimize.curve_fit`)
+        of the fitted log-sigmoid model for that combination.
+
+    Raises
+    ------
+    RuntimeError
+        If `curve_fit` fails to converge for a particular data subset.
+    """
+    # Define cutoff based on pfpr2to10_mean
+    pfpr_cutoff = 0.0  # Set the desired cutoff for pfpr2to10_mean
+    models_map = {
+        access_rate: {population: [] for population in populations} for access_rate in access_rates
+    }  # stores trained model for every parameter configuration
+
+    # Perform regression for each (Population, TreatmentAccess) group
+    for population in populations:
+        for treatment_access in access_rates:
+            # Filter the data for the current Population and TreatmentAccess
+            group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
+            if group.empty:
+                continue
+
+            group = group.copy()  # Create a copy to avoid SettingWithCopyWarning
+            pfpr = group["pfpr2to10"].to_numpy()
+            beta = group["beta"].to_numpy()
+            coefs = fit_log_sigmoid_model(beta, pfpr, pfpr_cutoff)
+            if coefs.size == 0:
+                print(
+                    f"Skipping fitting for population {population} and access rate {treatment_access} due to insufficient data."
+                )
+                continue
+            # Store the fitted model parameters
+            # coefs_as_list = [float(coef) for coef in coefs]  # Convert to list of floats
+            models_map[treatment_access][population] = coefs.tolist()  # type: ignore # Convert to list
+    return models_map
 
 
 def find_beta(
@@ -378,173 +533,6 @@ def find_beta(
         beta_values[mask_sigmoid] = 10 ** (beta_log_sigmoid)  # Convert back from log-space
 
     return beta_values
-
-
-def plot_log_sigmoid(
-    populations: list[int] | NDArray, access_rates: list[float] | NDArray, means: pandas.DataFrame, model_map: dict
-) -> Figure:
-    """
-    Plot the results of log-sigmoid fitting for calibration data.
-
-    This function generates a grid of plots, where each subplot shows the
-    relationship between Beta (log-transformed) and PfPR for a specific
-    population and access rate, along with the fitted sigmoid curve.
-
-    Parameters
-    ----------
-    populations : list[int] | numpy.typing.NDArray
-        List of unique population values.
-    access_rates : list[float] | numpy.typing.NDArray
-        List of unique access rate values.
-    means : pandas.DataFrame
-        DataFrame containing the mean PfPR and Beta values for each
-        combination of population and access rate.
-        Expected columns: 'population', 'access_rate', 'pfpr2to10', 'beta'.
-    model_map : dict
-        A nested dictionary containing the parameters of the fitted sigmoid models.
-        Structure: {access_rate: {population: model_parameters}}.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The matplotlib Figure object containing the grid of plots.
-    """
-    # Determine grid size
-    num_rows = len(populations)
-    num_cols = len(access_rates)
-    # Create subplots grid
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows), sharex=True, sharey=True)
-    # Ensure axes is always a 2D list for consistency
-    if num_rows == 1:
-        axes = numpy.array([axes])  # Convert to 2D array
-    if num_cols == 1:
-        axes = numpy.array([[ax] for ax in axes])  # Convert to 2D array
-    # Define cutoff based on pfpr2to10_mean
-    pfpr_cutoff = 0.0  # Set the desired cutoff for pfpr2to10_mean
-    # Perform regression for each (Population, TreatmentAccess) group
-    for i, population in enumerate(populations):
-        for j, treatment_access in enumerate(access_rates):
-            ax = axes[i, j]  # Select subplot location
-            # Filter the data for the current Population and TreatmentAccess
-            group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
-            if group.empty:
-                ax.set_visible(False)  # Hide empty plots
-                print(f"No data for population {population} and access rate {treatment_access}")
-                continue
-            # Plot data
-            ax.set_xscale("log")
-            sns.scatterplot(
-                x=group["beta"].values, y=group["pfpr2to10"].div(100).values, ax=ax, label="Data", color="black"
-            )
-            # Predictions
-            popt = model_map[treatment_access][population]
-            if popt is not None:
-                pfpr_targets = numpy.linspace(0, 1, 100).reshape(-1, 1)
-                X_plot = find_beta(pfpr_targets, None, popt, pfpr_cutoff)
-                ax.plot(X_plot, pfpr_targets, color="red")
-            # Titles & Labels
-            ax.set_title(f"Pop {population}, Access {treatment_access}")
-            if j == 0:
-                ax.set_ylabel("pfpr2to10_mean")  # Label only on first column
-            if i == num_rows - 1:
-                ax.set_xlabel("Beta")  # Label only on last row
-            ax.legend(fontsize=7)
-    # Adjust layout
-    plt.suptitle("Curve Fitting for beta vs pfpr2to10 by Population & Treatment Access", fontsize=16)
-    plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
-    return fig
-
-
-def log_sigmoid_fit(
-    populations: list[int] | NDArray,
-    access_rates: list[float] | NDArray,
-    means: pandas.DataFrame,
-) -> dict[float, dict[int, Any]]:
-    """
-    Perform log-sigmoid regression on calibration data.
-
-    This function fits a sigmoid model to the relationship between
-    log-transformed Beta values and PfPR (Plasmodium falciparum parasite rate)
-    for different combinations of population and treatment access rates.
-
-    Parameters
-    ----------
-    populations : list[int] | numpy.typing.NDArray
-        List of unique population values for which to fit the model.
-    access_rates : list[float] | numpy.typing.NDArray
-        List of unique treatment access rates for which to fit the model.
-    means : pandas.DataFrame
-        A DataFrame containing the mean PfPR and Beta values from calibration runs.
-        It must include columns: 'population', 'access_rate', 'pfpr2to10', and 'beta'.
-        'pfpr2to10' should be the mean PfPR in 2-10 year olds.
-        'beta' is the transmission parameter.
-
-    Returns
-    -------
-    dict[float, dict[int, typing.Any]]
-        A nested dictionary where the outer keys are access rates, inner keys are
-        populations, and values are the parameters (e.g., from `scipy.optimize.curve_fit`)
-        of the fitted log-sigmoid model for that combination.
-
-    Raises
-    ------
-    RuntimeError
-        If `curve_fit` fails to converge for a particular data subset.
-    """
-    # Define cutoff based on pfpr2to10_mean
-    pfpr_cutoff = 0.0  # Set the desired cutoff for pfpr2to10_mean
-    models_map = {
-        access_rate: {population: None for population in populations} for access_rate in access_rates
-    }  # stores trained model for every parameter configuration
-
-    # Perform regression for each (Population, TreatmentAccess) group
-    for population in populations:
-        for treatment_access in access_rates:
-            # Filter the data for the current Population and TreatmentAccess
-            group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
-            if group.empty:
-                continue
-
-            group = group.copy()  # Create a copy to avoid SettingWithCopyWarning
-            group["pfpr2to10"] = numpy.array(group["pfpr2to10"].values) / 100
-            group["beta"] = numpy.log10(numpy.array(group["beta"].values))
-
-            X = group["beta"].values  # Log of Predictor (Beta)
-            y = group["pfpr2to10"].values  # Response variable
-
-            # Determine cutoff Beta based on pfpr2to10_mean
-            if numpy.any(y < pfpr_cutoff):
-                cutoff_beta_val = numpy.max(X[y < pfpr_cutoff])  # Largest Beta where pfpr2to10_mean <= cutoff
-            else:
-                cutoff_beta_val = numpy.min(X)  # Default to min beta if no values are below cutoff
-
-            X_filtered = X
-            y_filtered = y
-
-            if len(X_filtered) < 3:  # Check if enough data points for regression
-                continue
-
-            try:
-                # Perform sigmoid regression
-                popt, pcov = curve_fit(
-                    sigmoid_fit,
-                    X_filtered,
-                    y_filtered,
-                    maxfev=5000,
-                    p0=[
-                        numpy.max(y_filtered) if len(y_filtered) > 0 else 0,
-                        numpy.median(X_filtered) if len(X_filtered) > 0 else 0,
-                        1,
-                    ],
-                )
-                models_map[treatment_access][population] = popt  # Store parameters
-
-            except RuntimeError:
-                pass  # Or handle error as needed
-            except TypeError:  # Handle cases where curve_fit might receive empty arrays from p0 logic
-                pass
-
-    return models_map
 
 
 def get_beta(
