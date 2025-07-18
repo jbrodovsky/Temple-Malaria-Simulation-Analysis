@@ -1,10 +1,16 @@
 """
-Generate commands for MaSim
+Generate commands and job files for running MaSim simulations.
+
+This module includes functions to:
+- Generate MaSim execution commands based on configuration files.
+- Batch generate commands for multiple configurations.
+- Create job script files for submission to a cluster (e.g., PBS).
 """
 
 import argparse
 import os
 from math import ceil, floor
+from typing import Optional
 
 NODE_MEMORY = 128  # GB
 NODE_CORES = 28  # Cores
@@ -33,16 +39,21 @@ def generate_commands(
     input_configuration_file: str, output_directory: str, repetitions: int = 1
 ) -> tuple[str, list[str]]:
     """
-    Generate commands for MaSim
+    Generate commands for MaSim.
 
     Parameters
     ----------
     input_configuration_file : str
-        The input configuration file path, ex: ./conf/rwa/AL5.yml
+        The input configuration file path, ex: ./conf/rwa/AL5.yml.
     output_directory : str
-        The output directory to store simulation results, ex: ./output/rwa
-    repetitions : int
-        The number of repetitions
+        The output directory to store simulation results, ex: ./output/rwa.
+    repetitions : int, optional
+        The number of repetitions, by default 1.
+
+    Returns
+    -------
+    tuple[str, list[str]]
+        A tuple containing the commands filename and a list of generated commands.
     """
     # Check if the output directory exists
     if not os.path.exists(output_directory):
@@ -65,21 +76,26 @@ def generate_commands(
 
 
 def batch_generate_command_jobs(
-    input_configuration_directory: list,
+    input_configuration_directory: str,
     output_directory: str,
     repetitions: int = 1,
 ) -> list[str]:
     """
-    Batch generate commands for MaSim
+    Batch generate commands for MaSim.
 
     Parameters
     ----------
-    input_configuration_directory : list
-        The input configuration directory, ex: ./input/rwa
+    input_configuration_directory : str
+        The input configuration directory, ex: ./input/rwa.
     output_directory : str
-        The output directory, ex: ./output/rwa
-    repetitions : int
-        The number of repetitions
+        The output directory, ex: ./output/rwa.
+    repetitions : int, optional
+        The number of repetitions, by default 1.
+
+    Returns
+    -------
+    list[str]
+        A list of all generated commands.
     """
     commands = []
     for root, _, files in os.walk(input_configuration_directory):
@@ -97,8 +113,28 @@ def batch_generate_command_jobs(
 
 
 def generate_job_file(
-    commands_filename: str, job_name: str = "MyJob", cores_override: int = None, nodes_override: int = None
+    commands_filename: str,
+    job_name: str = "MyJob",
+    cores_override: Optional[int] = None,
+    nodes_override: Optional[int] = None,
+    email: Optional[str] = None,
 ) -> None:
+    """
+    Generate a job file for submitting MaSim commands to a cluster.
+
+    Parameters
+    ----------
+    commands_filename : str
+        The name of the file containing the MaSim commands.
+    job_name : str, optional
+        The name of the job, by default "MyJob".
+    cores_override : Optional[int], optional
+        Override the number of cores per node, by default None.
+    nodes_override : Optional[int], optional
+        Override the number of nodes, by default None.
+    email : Optional[str], optional
+        Email address for job notifications, by default None.
+    """
     # Get the number of lines in commands_filename
     with open(commands_filename, "r") as f:
         num_commands = sum(1 for _ in f)
@@ -123,6 +159,9 @@ def generate_job_file(
         f.write("#PBS -l walltime=48:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
         f.write("#PBS -q normal\n")
+        if email:
+            f.write("#PBS -m bae\n")
+            f.write(f"#PBS -M {email}\n")
         f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
         f.write("cd $PBS_O_WORKDIR\n")
         f.write(f"torque-launch {commands_filename}\n")
@@ -134,6 +173,9 @@ def generate_job_file(
 
 
 def main() -> None:
+    """
+    Main function to handle command-line arguments for generating MaSim commands and job files.
+    """
     parser = argparse.ArgumentParser(description="Generate commands for MaSim")
     parser.add_argument(
         "-i",

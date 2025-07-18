@@ -1,1 +1,0 @@
-./bin/MaSim -i ./conf/moz/calibration/cal_10_0.451_0.02.yml -o ./output/moz/calibration/cal_10_0.451_0.02_ -r SQLiteDistrictReporter -j 99
