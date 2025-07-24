@@ -26,7 +26,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
         ((INDEX++))
     fi
-done < moz_validation.txt
+done < ./moz_validation3.txt
 
 # Final wait for all remaining jobs
 wait
