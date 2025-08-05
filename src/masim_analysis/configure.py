@@ -860,7 +860,7 @@ def configure(
     strategy_db: dict = STRATEGY_DB,
     calibration_str: str = "",  # pass to validate raster files
     beta_override: float = -1.0,  # pass to validate
-    population_override: int = -1,  # pass to validate
+    population_scalar: float = 0.25,  # pass to validate
     access_rate_override: float = -1.0,  # pass to validate
     calibration: bool = False,
 ) -> dict:
@@ -870,7 +870,9 @@ def configure(
     if calibration:
         assert calibration_str is not None, "Calibration string must be provided for calibration mode."
         assert beta_override >= 0.0, "Beta override must be greater than or equal to zero for calibration mode."
-
+    assert population_scalar > 0.0 and population_scalar <= 1.0, (
+        "Population scalar must be greater than 0 and less than or equal to 1."
+    )
     params = ConfigureParams(
         birth_rate=birth_rate,
         initial_age_structure=initial_age_structure,
@@ -878,6 +880,7 @@ def configure(
         starting_date=starting_date.strftime("%Y/%m/%d"),
         start_of_comparison_period=start_of_comparison_period.strftime("%Y/%m/%d"),
         ending_date=ending_date.strftime("%Y/%m/%d"),
+        artificial_rescaling_of_population_size=population_scalar,
     )
     execution_control = asdict(params)
     execution_control["raster_db"] = create_raster_db(

@@ -57,7 +57,7 @@ def plot_districts(
 
 
 def plot_population(
-    population_raster: numpy.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10)
+    population_raster: numpy.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10), population_upper_limit: float = 1000
 ) -> Figure:
     """
     Plot the population density of the country according to the raster array.
@@ -77,9 +77,11 @@ def plot_population(
         The matplotlib Figure object containing the plot.
     """
     fig, ax = plt.subplots(figsize=fig_size)
-    ax.imshow(population_raster, cmap="coolwarm")
+    img = ax.imshow(population_raster, cmap="turbo")
+    img.set_clim(0, population_upper_limit)
     ax.set_title(f"{country_name} Population")
-    fig.colorbar(plt.cm.ScalarMappable(cmap="coolwarm"), ax=ax, label="Population Density")
+    fig.colorbar(img, ax=ax, label="Population")
+    
     return fig
 
 
@@ -104,9 +106,9 @@ def plot_prevalence(
         The matplotlib Figure object containing the plot.
     """
     fig, ax = plt.subplots(figsize=fig_size)
-    ax.imshow(prevalence_raster, cmap="coolwarm")
+    img = ax.imshow(prevalence_raster, cmap="coolwarm")
     ax.set_title(f"{country_name} Prevalence")
-    fig.colorbar(plt.cm.ScalarMappable(cmap="coolwarm"), ax=ax, label="Prevalence")
+    fig.colorbar(img, ax=ax, label="Prevalence")
     return fig
 
 

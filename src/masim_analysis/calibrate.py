@@ -96,10 +96,11 @@ def generate_configuration_files(
                     strategy_db,
                     f"{pop}_{access}_{beta}",
                     beta,
-                    pop,
+                    1.0,
                     access,
                     True,
                 )
+
                 write_pixel_data_files(execution_control["raster_db"], pop)
                 output_path = os.path.join("conf", country_code, "calibration", f"cal_{pop}_{access}_{beta}.yml")
                 try:
@@ -179,7 +180,8 @@ def summarize_calibration_results(
     population_bins: list[int],
     access_rates: list[float],
     beta_values: list[float],
-    comparison_year: int,
+    comparison_start_month: int,
+    comparison_end_month: int,
     output_dir: str,
     repetitions: int = 20,
 ) -> pandas.DataFrame:
@@ -215,8 +217,8 @@ def summarize_calibration_results(
     summary = pandas.DataFrame(
         columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
     )
-    comparison = date(comparison_year, 1, 1)
-    year_end = date(comparison_year + 1, 1, 1)
+    # comparison = date(comparison_year, 1, 1)
+    # year_end = date(comparison_year + 1, 1, 1)
     # Process summary
     for pop in tqdm(population_bins):
         for access in access_rates:
@@ -228,15 +230,24 @@ def summarize_calibration_results(
                         months = analysis.get_table(file, "monthlydata")
                         monthlysitedata = analysis.get_table(file, "monthlysitedata")
                     except FileNotFoundError as e:
-                        print(f"File not found: {e}")
-                        continue
+                        filename = f"cal_{pop}_{access}_{int(beta)}_monthly_data_{i}"  # TODO: #15 fix the masim file output to ensure consistent int/float digits
+                        file = os.path.join(base_file_path, f"{filename}.db")
+                        try:
+                            months = analysis.get_table(file, "monthlydata")
+                            monthlysitedata = analysis.get_table(file, "monthlysitedata")
+                        except FileNotFoundError as e:
+                            print(f"File not found: {e}")
+                            continue
                     data = pandas.merge(monthlysitedata, months, left_on="monthlydataid", right_on="id")
-                    data["date"] = pandas.to_datetime(data["modeltime"], unit="s")
+                    # data["date"] = pandas.to_datetime(data["modeltime"], unit="s")
+                    data = data.loc[
+                        data["monthlydataid"].between(comparison_start_month, comparison_end_month, inclusive="left")
+                    ]
 
-                    summary.loc[filename] = data[
-                        (data["date"] >= comparison.strftime("%Y-%m-%d"))
-                        & (data["date"] < year_end.strftime("%Y-%m-%d"))
-                    ][["pfprunder5", "pfpr2to10", "pfprall"]].mean()
+                    # summary.loc[filename] = data[
+                    #     (data["date"] >= comparison.strftime("%Y-%m-%d"))
+                    #     & (data["date"] < year_end.strftime("%Y-%m-%d"))
+                    # ][["pfprunder5", "pfpr2to10", "pfprall"]].mean()
                     summary.loc[filename, "population"] = pop
                     summary.loc[filename, "access_rate"] = access
                     summary.loc[filename, "beta"] = beta
@@ -396,7 +407,7 @@ def fit_log_sigmoid_model(
         y_filtered = pfpr[betas < cutoff_beta_val]
     else:
         X_filtered = numpy.log(betas)
-        y_filtered = pfpr / 100
+        y_filtered = pfpr
 
     if len(X_filtered) < 3:  # Check if enough data points for regression
         print(f"Not enough data points for regression: {len(X_filtered)} points found.")
