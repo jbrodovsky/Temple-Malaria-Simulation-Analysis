@@ -43,7 +43,7 @@ initial_age_structure:
 - 64
 - 69
 - 100
-artificial_rescaling_of_population_size: 0.25
+artificial_rescaling_of_population_size: 1.0
 birth_rate: 0.0555
 death_rate_by_age_class:
 - 0.04814
