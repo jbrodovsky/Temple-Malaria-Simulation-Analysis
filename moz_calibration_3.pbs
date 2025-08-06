@@ -30,7 +30,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
         ((INDEX++))
     fi
-done < ./moz_calibration_cmds.txt
+done < ./moz_20000_cmds.txt
 
 # Final wait for all remaining jobs
 wait
