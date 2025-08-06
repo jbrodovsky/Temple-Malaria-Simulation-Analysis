@@ -11,7 +11,7 @@ cd $PBS_O_WORKDIR
 
 echo "Current folder: $(pwd)"
 
-MAX_PARALLEL=50
+MAX_PARALLEL=100
 CURRENT=0
 INDEX=0
 
