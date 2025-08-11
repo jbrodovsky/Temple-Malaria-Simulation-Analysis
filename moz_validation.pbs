@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l walltime=48:00:00
+#PBS -l walltime=168:00:00
 #PBS -N MozValidation
 #PBS -q nd
 #PBS -l select=1:ncpus=20:host=nd04
