@@ -19,7 +19,6 @@ import pandas
 from ruamel.yaml import YAML
 from ruamel.yaml.emitter import EmitterError
 
-# Curve Fitting (linear and polynomial regression models)
 from scipy.optimize import curve_fit
 from tqdm import tqdm
 
@@ -27,13 +26,17 @@ from masim_analysis import analysis, commands, configure
 
 yaml = YAML()
 
+# Calibration constants
+BETAS = [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1]
+POPULATION_BINS = [10, 20, 30, 40, 50, 75, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 20000]
+
 
 def generate_configuration_files(
     country_code: str,
     calibration_year: int,
-    population_bins: list[int],
+    population_bins: list[int],  # depricated
     access_rates: list[float],
-    beta_values: list[float],
+    beta_values: list[float],  # depricated
     birth_rate: float,
     death_rate: list[float],
     initial_age_structure: list[int],
@@ -79,9 +82,9 @@ def generate_configuration_files(
     # Create default execution control dictionary
 
     # Generate the configuration files
-    for pop in tqdm(population_bins):
+    for pop in tqdm(POPULATION_BINS):
         for access in access_rates:
-            for beta in beta_values:
+            for beta in BETAS:
                 execution_control = configure.configure(
                     country_code,
                     birth_rate,
@@ -397,10 +400,12 @@ def fit_log_sigmoid_model(
     # Determine cutoff Beta based on pfpr2to10_mean
     if np.any(pfpr < pfpr_cutoff):
         cutoff_beta_val = np.max(betas[pfpr < pfpr_cutoff])  # Largest Beta where pfpr2to10_mean <= cutoff
-        X_filtered = np.log(betas[betas < cutoff_beta_val])
+        # X_filtered = np.log(betas[betas < cutoff_beta_val])
+        X_filtered = np.log10(betas[betas < cutoff_beta_val])
         y_filtered = pfpr[betas < cutoff_beta_val]
     else:
-        X_filtered = np.log(betas)
+        # X_filtered = np.log(betas)
+        X_filtered = np.log10(betas)
         y_filtered = pfpr
 
     if len(X_filtered) < 3:  # Check if enough data points for regression
@@ -448,6 +453,9 @@ def get_beta_models(
         It must include columns: 'population', 'access_rate', 'pfpr2to10', and 'beta'.
         'pfpr2to10' should be the mean PfPR in 2-10 year olds.
         'beta' is the transmission parameter.
+    pfpr_cutoff : float, optional
+        The cutoff value for PfPR below which data points will be excluded from the fitting process
+        and an alternative linear model used.
 
     Returns
     -------
@@ -476,8 +484,8 @@ def get_beta_models(
                 continue
 
             group = group.copy()  # Create a copy to avoid SettingWithCopyWarning
-            pfpr = group["pfpr2to10"].to_np()
-            beta = group["beta"].to_np()
+            pfpr = group["pfpr2to10"].to_numpy()
+            beta = group["beta"].to_numpy()
             coefs = fit_log_sigmoid_model(beta, pfpr, pfpr_cutoff)
             if coefs.size == 0:
                 print(
@@ -645,3 +653,17 @@ def predicted_prevalence(models_map, population_raster, treatment, beta_map):
                 print(f"Error occurred while calibrating PfPR at ({r}, {c}): {e}")
                 pfpr_map[r, c] = 0.0
     return pfpr_map
+
+
+def calibrate(country_code: str) -> None:
+    """
+    Runs the full country-wide model calibration process. This method assumes the following pre-processing has been completed:
+    - Basic country-model data (ex: initial age structure, age distribution, death rate) and raster files have been assembled and placed under `data/<country_code>/`
+    - Birth rate has been verified with a basic configuration file saved to `conf/<country_code>/test/<country_code>_params.yaml
+    - `drug_db`, `therapy_db`, and `strategy_db` have been created and saved to `conf/<country_code>/test/strategy_db.yaml`
+    - The implementation events have been created and saved to `conf/<country_code>/test/events.yaml`
+    - Any seasonality effects are calculated and saved to `data/<country_code>/<country_code>_seasonality.csv`
+
+    """
+    params = yaml.load(open(os.path.join("conf", country_code, "test", f"{country_code}_params.yml"), "r"))
+    return None
