@@ -26,11 +26,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         wait_for_available_slot  # <<< wait if too many jobs
 
         echo "Running: $line"
-        eval "$line" > ${INDEX}.output 2> ${INDEX}.error &
+        eval "$line" > MozValidation_${INDEX}.output 2> MozValidation_${INDEX}.error &
 
         ((INDEX++))
     fi
-done < ./moz_validation2.txt
+done < ./moz_validation.txt
 
 # Final wait for all remaining jobs
 wait
