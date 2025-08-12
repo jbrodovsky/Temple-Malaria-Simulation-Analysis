@@ -4,4 +4,6 @@
 #PBS -q normal
 #PBS -l nodes=1:ppn=28
 cd $PBS_O_WORKDIR
-torque-launch test_cmds.txt
+
+
+torque-launch ./test_cmds.txt
