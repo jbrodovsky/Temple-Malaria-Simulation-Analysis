@@ -1,0 +1,10 @@
+../bin/exe James1 > log/mylog.log 2> log/myerrors.log
+../bin/exe James2 > log/mylog.log 2> log/myerrors.log
+../bin/exe James3 > log/mylog.log 2> log/myerrors.log
+../bin/exe James4 > log/mylog.log 2> log/myerrors.log
+../bin/exe James5 > log/mylog.log 2> log/myerrors.log
+../bin/exe James6 > log/mylog.log 2> log/myerrors.log
+../bin/exe James7 > log/mylog.log 2> log/myerrors.log
+../bin/exe James8 > log/mylog.log 2> log/myerrors.log
+../bin/exe James9 > log/mylog.log 2> log/myerrors.log
+../bin/exe James0 > log/mylog.log 2> log/myerrors.log
