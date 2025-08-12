@@ -6,4 +6,4 @@
 cd $PBS_O_WORKDIR
 
 
-torque-launch ./test_cmds.txt
+torque-launch scripts/test_cmds.txt
