@@ -57,7 +57,10 @@ def plot_districts(
 
 
 def plot_population(
-    population_raster: numpy.ndarray, country_name: str, fig_size: tuple[int, int] = (10, 10), population_upper_limit: float = 1000
+    population_raster: numpy.ndarray,
+    country_name: str,
+    fig_size: tuple[int, int] = (10, 10),
+    population_upper_limit: float = 1000,
 ) -> Figure:
     """
     Plot the population density of the country according to the raster array.
@@ -81,7 +84,7 @@ def plot_population(
     img.set_clim(0, population_upper_limit)
     ax.set_title(f"{country_name} Population")
     fig.colorbar(img, ax=ax, label="Population")
-    
+
     return fig
 
 
