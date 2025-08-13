@@ -1,1 +1,0 @@
-./bin/MaSim -i conf/moz/moz_validation3.yml -o output/moz/moz_validation3/moz_validation3_ -r SQLiteDistrictReporter -j 0

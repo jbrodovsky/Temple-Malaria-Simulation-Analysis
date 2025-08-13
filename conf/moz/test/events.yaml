@@ -1,6 +1,6 @@
 - name: 2011_strategy
   info:
-  - day: 2011/01/01
+  - day: 2011-01-01
     strategy_id: 0
 - name: 2015_strategy
   info:

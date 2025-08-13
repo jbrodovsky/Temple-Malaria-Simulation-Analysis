@@ -5,9 +5,10 @@ This module provides functions to generate input configuration YAML files for Ma
 It is used to create appropriate strategy input files and calibration files.
 """
 
+import json
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Dict, List
 
 from ruamel.yaml import YAML
@@ -491,6 +492,53 @@ STRATEGY_DB = {
 
 
 @dataclass
+class CountryParams:
+    country_code: str
+    country_name: str
+    age_distribution: list[float]
+    birth_rate: float
+    calibration_year: int
+    death_rate: list[float]
+    initial_age_structure: list[int]
+    target_population: int
+    starting_date: date
+    ending_date: date
+    start_of_comparison_period: date
+
+    def to_dict(self):
+        out = asdict(self)
+        out["starting_date"] = self.starting_date.strftime("%Y/%m/%d")
+        out["ending_date"] = self.ending_date.strftime("%Y/%m/%d")
+        out["start_of_comparison_period"] = self.start_of_comparison_period.strftime("%Y/%m/%d")
+        return out
+
+    @staticmethod
+    def from_dict(data: dict):
+        return CountryParams(
+            country_code=data["country_code"],
+            country_name=data["country_name"],
+            age_distribution=data["age_distribution"],
+            birth_rate=data["birth_rate"],
+            calibration_year=data["calibration_year"],
+            death_rate=data["death_rate"],
+            initial_age_structure=data["initial_age_structure"],
+            target_population=data["target_population"],
+            starting_date=datetime.strptime(data["starting_date"], "%Y/%m/%d"),
+            ending_date=datetime.strptime(data["ending_date"], "%Y/%m/%d"),
+            start_of_comparison_period=datetime.strptime(data["start_of_comparison_period"], "%Y/%m/%d"),
+        )
+
+    @staticmethod
+    def load(file_path: str) -> "CountryParams":
+        """
+        A simple static class method for loading country parameters from a JSON file.
+        """
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        return CountryParams.from_dict(data)
+
+
+@dataclass
 class ConfigureParams:
     # country_code: str ###
     days_between_notifications: int = 30
@@ -901,3 +949,19 @@ def configure(
     execution_control["events"] = [{"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}]
 
     return execution_control
+
+
+def setup_directories(country_code: str) -> None:
+    """
+    Set up a new country model for the simulation and the accompanying folder structure.
+
+    # Arguments
+    - country_code: str
+        The country code for the new model, e.g., "rwa" for Rwanda.
+    """
+    os.makedirs(f"./conf/{country_code}", exist_ok=True)
+    os.makedirs(f"./data/{country_code}", exist_ok=True)
+    os.makedirs(f"./images/{country_code}", exist_ok=True)
+    os.makedirs(f"./log/{country_code}", exist_ok=True)
+    os.makedirs(f"./output/{country_code}", exist_ok=True)
+    os.makedirs(f"./scripts/{country_code}", exist_ok=True)
