@@ -114,7 +114,6 @@ def batch_generate_command_jobs(
 
 def generate_job_file(
     commands_filename: str,
-    country_code: str,
     job_name: str = "MyJob",
     cores_override: Optional[int] = None,
     nodes_override: Optional[int] = None,
@@ -140,7 +139,7 @@ def generate_job_file(
     with open(commands_filename, "r") as f:
         num_commands = sum(1 for _ in f)
     # Generate the job file
-    job_filename = os.path.join("scripts", country_code, f"{job_name}.sh")
+    job_filename = f"{job_name}.sh"
     if os.path.exists(job_filename):
         os.remove(job_filename)
 
