@@ -11,5 +11,3 @@ src/masim_analysis/__pycache__/configure.cpython-312.pyc
 launch_jobs.sh
 .ruff_cache
 .vscode
-
-output
