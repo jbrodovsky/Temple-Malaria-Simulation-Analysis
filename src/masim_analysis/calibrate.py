@@ -15,7 +15,7 @@ from typing import Optional
 import numpy as np
 from numpy.typing import NDArray, ArrayLike
 import numpy.typing as npt
-import pandas
+import pandas as pd
 from ruamel.yaml import YAML
 from ruamel.yaml.emitter import EmitterError
 
@@ -34,9 +34,7 @@ POPULATION_BINS = [10, 20, 30, 40, 50, 75, 100, 250, 500, 1000, 2000, 5000, 1000
 def generate_configuration_files(
     country_code: str,
     calibration_year: int,
-    population_bins: list[int],  # depricated
     access_rates: list[float],
-    beta_values: list[float],  # depricated
     birth_rate: float,
     death_rate: list[float],
     initial_age_structure: list[int],
@@ -131,9 +129,7 @@ def write_pixel_data_files(raster_db: dict, population: int):
 
 def generate_command_and_job_files(
     country_code: str,
-    population_bins: list[int],
     access_rates: list[float],
-    beta_values: list[float],
     repetitions: int = 20,
     cores: int = 28,
     nodes: int = 1,
@@ -145,12 +141,12 @@ def generate_command_and_job_files(
     ----------
     country_code : str
         The country code (e.g., "RWA", "MOZ").
-    population_bins : list[int]
-        List of population bins used in calibration.
+    #population_bins : list[int]
+    #    List of population bins used in calibration.
     access_rates : list[float]
         List of treatment access rates used in calibration.
-    beta_values : list[float]
-        List of beta values used in calibration.
+    #beta_values : list[float]
+    #    List of beta values used in calibration.
     repetitions : int, optional
         Number of repetitions for each simulation, by default 20.
     cores : int, optional
@@ -159,17 +155,18 @@ def generate_command_and_job_files(
         Number of nodes to request for job submission, by default 1.
     """
     # Generate the command and job files
-    for pop in tqdm(population_bins):
-        filename = f"{country_code}_{pop}_cmds.txt"
+    for pop in tqdm(POPULATION_BINS):
+        filename = os.path.join("scripts", country_code, f"{country_code}_{pop}_cmds.txt")
         with open(filename, "w") as f:
             for access in access_rates:
-                for beta in beta_values:
+                for beta in BETAS:
                     for j in range(repetitions):
                         f.write(
                             f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {j + 1}\n"
                         )
         commands.generate_job_file(
             filename,
+            country_code,
             job_name=f"{country_code}_{pop}_jobs",
             cores_override=cores,
             nodes_override=nodes,
@@ -185,7 +182,7 @@ def summarize_calibration_results(
     comparison_end_month: int,
     output_dir: str,
     repetitions: int = 20,
-) -> pandas.DataFrame:
+) -> pd.DataFrame:
     """
     Summarize the results of MaSim calibration runs.
 
@@ -211,11 +208,11 @@ def summarize_calibration_results(
 
     Returns
     -------
-    pandas.DataFrame
+    pd.DataFrame
         A DataFrame summarizing the calibration results.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
-    summary = pandas.DataFrame(
+    summary = pd.DataFrame(
         columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
     )
     # comparison = date(comparison_year, 1, 1)
@@ -256,9 +253,7 @@ def summarize_calibration_results(
 
 def process_missing_jobs(
     country_code: str,
-    population_bins: list[int],
     access_rates: list[float],
-    beta_values: list[float],
     output_dir: str,
     repetitions: int = 20,
 ):
@@ -284,9 +279,9 @@ def process_missing_jobs(
         Number of repetitions expected for each parameter set, by default 20.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
-    for pop in tqdm(population_bins):
+    for pop in tqdm(POPULATION_BINS):
         for access in access_rates:
-            for beta in beta_values:
+            for beta in BETAS:
                 for i in range(repetitions):
                     filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i + 1}"
                     file = os.path.join(base_file_path, f"{filename}.db")
@@ -432,7 +427,7 @@ def fit_log_sigmoid_model(
 def get_beta_models(
     populations: list[int],
     access_rates: list[float],
-    means: pandas.DataFrame,
+    means: pd.DataFrame,
     pfpr_cutoff: float = 0.0,
 ) -> dict[float, dict[int, list[float]]]:
     """
@@ -655,6 +650,65 @@ def predicted_prevalence(models_map, population_raster, treatment, beta_map):
     return pfpr_map
 
 
+def get_last_year_statistics(
+    ave_cases: pd.DataFrame, ave_prevalence: pd.DataFrame, ave_population: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Calculate the final year statistics for cases, prevalence, and population.
+
+    Arguments
+    ----------
+        ave_cases : DataFrame
+            The data frame containing average cases data
+        ave_prevalence : DataFrame
+            The data frame containing average prevalence data
+        ave_population : DataFrame
+            The data frame containing average population data
+
+    Returns
+    -------
+    A tuple containing three DataFrames: mean_cases, mean_prevalence, mean_population
+    """
+    months = ave_cases["monthlydataid"].unique()
+    end_month = months[-13]
+    start_month = end_month - 12
+
+    mean_cases = (
+        ave_cases.loc[ave_cases["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .sum()
+    )
+    mean_cases = mean_cases.drop(columns=["monthlydataid"])
+    mean_cases = mean_cases.drop(columns=["clinicalepisodes"])
+    mean_cases["mean"] = mean_cases.mean(axis=1)
+    mean_cases["std"] = mean_cases.std(axis=1)
+
+    mean_population = (
+        ave_population.loc[ave_population["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .mean()
+    )
+    mean_population = mean_population.drop(columns=["monthlydataid"])
+    mean_population = mean_population.drop(columns=["population"])
+    mean_population["mean"] = mean_population.mean(axis=1)
+    mean_population["std"] = mean_population.std(axis=1)
+
+    mean_prevalence = (
+        ave_prevalence.loc[ave_prevalence["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .mean()
+    )
+    mean_prevalence = mean_prevalence.drop(columns=["monthlydataid"])
+    mean_prevalence = mean_prevalence.drop(columns=["pfpr2to10"])
+    mean_prevalence["mean"] = mean_prevalence.mean(axis=1)
+    mean_prevalence["std"] = mean_prevalence.std(axis=1)
+
+    return mean_cases, mean_prevalence, mean_population
+
+
 def calibrate(country_code: str) -> None:
     """
     Runs the full country-wide model calibration process. This method assumes the following pre-processing has been completed:
@@ -665,5 +719,5 @@ def calibrate(country_code: str) -> None:
     - Any seasonality effects are calculated and saved to `data/<country_code>/<country_code>_seasonality.csv`
 
     """
-    params = yaml.load(open(os.path.join("conf", country_code, "test", f"{country_code}_params.yml"), "r"))
+    # params = yaml.load(open(os.path.join("conf", country_code, "test", f"{country_code}_params.yml"), "r"))
     return None
