@@ -13,6 +13,8 @@ from datetime import date
 from typing import Optional
 
 import numpy as np
+import pandas as pd
+
 from numpy.typing import NDArray, ArrayLike
 import numpy.typing as npt
 import pandas
@@ -653,6 +655,65 @@ def predicted_prevalence(models_map, population_raster, treatment, beta_map):
                 print(f"Error occurred while calibrating PfPR at ({r}, {c}): {e}")
                 pfpr_map[r, c] = 0.0
     return pfpr_map
+
+
+def get_last_year_statistics(
+    ave_cases: pd.DataFrame, ave_prevalence: pd.DataFrame, ave_population: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Calculate the final year statistics for cases, prevalence, and population.
+
+    Arguments
+    ----------
+        ave_cases : DataFrame
+            The data frame containing average cases data
+        ave_prevalence : DataFrame
+            The data frame containing average prevalence data
+        ave_population : DataFrame
+            The data frame containing average population data
+
+    Returns
+    -------
+    A tuple containing three DataFrames: mean_cases, mean_prevalence, mean_population
+    """
+    months = ave_cases["monthlydataid"].unique()
+    end_month = months[-13]
+    start_month = end_month - 12
+
+    mean_cases = (
+        ave_cases.loc[ave_cases["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .sum()
+    )
+    mean_cases = mean_cases.drop(columns=["monthlydataid"])
+    mean_cases = mean_cases.drop(columns=["clinicalepisodes"])
+    mean_cases["mean"] = mean_cases.mean(axis=1)
+    mean_cases["std"] = mean_cases.std(axis=1)
+
+    mean_population = (
+        ave_population.loc[ave_population["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .mean()
+    )
+    mean_population = mean_population.drop(columns=["monthlydataid"])
+    mean_population = mean_population.drop(columns=["population"])
+    mean_population["mean"] = mean_population.mean(axis=1)
+    mean_population["std"] = mean_population.std(axis=1)
+
+    mean_prevalence = (
+        ave_prevalence.loc[ave_prevalence["monthlydataid"].between(start_month, end_month, inclusive="left")]
+        .copy()
+        .groupby("locationid")
+        .mean()
+    )
+    mean_prevalence = mean_prevalence.drop(columns=["monthlydataid"])
+    mean_prevalence = mean_prevalence.drop(columns=["pfpr2to10"])
+    mean_prevalence["mean"] = mean_prevalence.mean(axis=1)
+    mean_prevalence["std"] = mean_prevalence.std(axis=1)
+
+    return mean_cases, mean_prevalence, mean_population
 
 
 def calibrate(country_code: str) -> None:
