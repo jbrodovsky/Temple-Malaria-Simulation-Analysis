@@ -36,16 +36,14 @@ POPULATION_BINS = [10, 20, 30, 40, 50, 75, 100, 250, 500, 1000, 2000, 5000, 1000
 def generate_configuration_files(
     country_code: str,
     calibration_year: int,
-    population_bins: list[int],  # depricated
     access_rates: list[float],
-    beta_values: list[float],  # depricated
     birth_rate: float,
     death_rate: list[float],
     initial_age_structure: list[int],
     age_distribution: list[float],
-    seasonality_file_name: str = "seasonality",
+    # seasonality_file_name: str = "seasonality",
     strategy_db: dict[int, dict[str, str | list[int]]] = configure.STRATEGY_DB,
-    events: Optional[list[dict]] = None,
+    # events: Optional[list[dict]] = None,
 ) -> None:
     """
     Generate MaSim configuration files for a given country and calibration parameters.
@@ -133,9 +131,7 @@ def write_pixel_data_files(raster_db: dict, population: int):
 
 def generate_command_and_job_files(
     country_code: str,
-    population_bins: list[int],
     access_rates: list[float],
-    beta_values: list[float],
     repetitions: int = 20,
     cores: int = 28,
     nodes: int = 1,
@@ -161,11 +157,11 @@ def generate_command_and_job_files(
         Number of nodes to request for job submission, by default 1.
     """
     # Generate the command and job files
-    for pop in tqdm(population_bins):
+    for pop in tqdm(POPULATION_BINS):
         filename = f"{country_code}_{pop}_cmds.txt"
         with open(filename, "w") as f:
             for access in access_rates:
-                for beta in beta_values:
+                for beta in BETAS:
                     for j in range(repetitions):
                         f.write(
                             f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {j + 1}\n"
@@ -180,9 +176,7 @@ def generate_command_and_job_files(
 
 def summarize_calibration_results(
     country_code: str,
-    population_bins: list[int],
     access_rates: list[float],
-    beta_values: list[float],
     comparison_start_month: int,
     comparison_end_month: int,
     output_dir: str,
@@ -223,9 +217,9 @@ def summarize_calibration_results(
     # comparison = date(comparison_year, 1, 1)
     # year_end = date(comparison_year + 1, 1, 1)
     # Process summary
-    for pop in tqdm(population_bins):
+    for pop in tqdm(POPULATION_BINS):
         for access in access_rates:
-            for beta in beta_values:
+            for beta in BETAS:
                 for i in range(1, repetitions + 1):
                     filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
                     file = os.path.join(base_file_path, f"{filename}.db")
@@ -258,9 +252,7 @@ def summarize_calibration_results(
 
 def process_missing_jobs(
     country_code: str,
-    population_bins: list[int],
     access_rates: list[float],
-    beta_values: list[float],
     output_dir: str,
     repetitions: int = 20,
 ):
@@ -286,9 +278,9 @@ def process_missing_jobs(
         Number of repetitions expected for each parameter set, by default 20.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
-    for pop in tqdm(population_bins):
+    for pop in tqdm(POPULATION_BINS):
         for access in access_rates:
-            for beta in beta_values:
+            for beta in BETAS:
                 for i in range(repetitions):
                     filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i + 1}"
                     file = os.path.join(base_file_path, f"{filename}.db")
