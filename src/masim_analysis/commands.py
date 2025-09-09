@@ -166,10 +166,10 @@ def generate_job_file(
         f.write("cd $PBS_O_WORKDIR\n")
         f.write(f"torque-launch {commands_filename}\n")
     # Display the commands file
-    print(f"Commands file: {commands_filename}")
-    print(f"Job script: {job_filename}")
-    run_command = f"qsub {job_filename}"
-    print(f"To submit the job, run: {run_command}")
+    # print(f"Commands file: {commands_filename}")
+    # print(f"Job script: {job_filename}")
+    # run_command = f"qsub {job_filename}"
+    # print(f"To submit the job, run: {run_command}")
 
 
 def main() -> None:

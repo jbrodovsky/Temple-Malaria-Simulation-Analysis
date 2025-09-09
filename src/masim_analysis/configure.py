@@ -5,9 +5,10 @@ This module provides functions to generate input configuration YAML files for Ma
 It is used to create appropriate strategy input files and calibration files.
 """
 
+import json
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Dict, List
 
 from ruamel.yaml import YAML
@@ -491,6 +492,53 @@ STRATEGY_DB = {
 
 
 @dataclass
+class CountryParams:
+    country_code: str
+    country_name: str
+    age_distribution: list[float]
+    birth_rate: float
+    calibration_year: int
+    death_rate: list[float]
+    initial_age_structure: list[int]
+    target_population: int
+    starting_date: date
+    ending_date: date
+    start_of_comparison_period: date
+
+    def to_dict(self):
+        out = asdict(self)
+        out["starting_date"] = self.starting_date.strftime("%Y/%m/%d")
+        out["ending_date"] = self.ending_date.strftime("%Y/%m/%d")
+        out["start_of_comparison_period"] = self.start_of_comparison_period.strftime("%Y/%m/%d")
+        return out
+
+    @staticmethod
+    def from_dict(data: dict):
+        return CountryParams(
+            country_code=data["country_code"],
+            country_name=data["country_name"],
+            age_distribution=data["age_distribution"],
+            birth_rate=data["birth_rate"],
+            calibration_year=data["calibration_year"],
+            death_rate=data["death_rate"],
+            initial_age_structure=data["initial_age_structure"],
+            target_population=data["target_population"],
+            starting_date=datetime.strptime(data["starting_date"], "%Y/%m/%d"),
+            ending_date=datetime.strptime(data["ending_date"], "%Y/%m/%d"),
+            start_of_comparison_period=datetime.strptime(data["start_of_comparison_period"], "%Y/%m/%d"),
+        )
+
+    @staticmethod
+    def load(file_path: str) -> "CountryParams":
+        """
+        A simple static class method for loading country parameters from a JSON file.
+        """
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        return CountryParams.from_dict(data)
+
+
+@dataclass
 class ConfigureParams:
     # country_code: str ###
     days_between_notifications: int = 30
@@ -860,7 +908,7 @@ def configure(
     strategy_db: dict = STRATEGY_DB,
     calibration_str: str = "",  # pass to validate raster files
     beta_override: float = -1.0,  # pass to validate
-    population_override: int = -1,  # pass to validate
+    population_scalar: float = 0.25,  # pass to validate
     access_rate_override: float = -1.0,  # pass to validate
     calibration: bool = False,
 ) -> dict:
@@ -870,7 +918,9 @@ def configure(
     if calibration:
         assert calibration_str is not None, "Calibration string must be provided for calibration mode."
         assert beta_override >= 0.0, "Beta override must be greater than or equal to zero for calibration mode."
-
+    assert population_scalar > 0.0 and population_scalar <= 1.0, (
+        "Population scalar must be greater than 0 and less than or equal to 1."
+    )
     params = ConfigureParams(
         birth_rate=birth_rate,
         initial_age_structure=initial_age_structure,
@@ -878,6 +928,7 @@ def configure(
         starting_date=starting_date.strftime("%Y/%m/%d"),
         start_of_comparison_period=start_of_comparison_period.strftime("%Y/%m/%d"),
         ending_date=ending_date.strftime("%Y/%m/%d"),
+        artificial_rescaling_of_population_size=population_scalar,
     )
     execution_control = asdict(params)
     execution_control["raster_db"] = create_raster_db(
@@ -898,3 +949,19 @@ def configure(
     execution_control["events"] = [{"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}]
 
     return execution_control
+
+
+def setup_directories(country_code: str) -> None:
+    """
+    Set up a new country model for the simulation and the accompanying folder structure.
+
+    # Arguments
+    - country_code: str
+        The country code for the new model, e.g., "rwa" for Rwanda.
+    """
+    os.makedirs(f"./conf/{country_code}", exist_ok=True)
+    os.makedirs(f"./data/{country_code}", exist_ok=True)
+    os.makedirs(f"./images/{country_code}", exist_ok=True)
+    os.makedirs(f"./log/{country_code}", exist_ok=True)
+    os.makedirs(f"./output/{country_code}", exist_ok=True)
+    os.makedirs(f"./scripts/{country_code}", exist_ok=True)
