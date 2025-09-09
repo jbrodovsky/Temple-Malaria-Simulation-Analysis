@@ -1,0 +1,9 @@
+# Scripts
+
+This folder should contain job processing scripts and commands either for the Temple University HPC cluster (Owl's Nest) or the Boni Lab cluster (Nessun Dorma). It is generally recommended that calibration jobs and activities are processed via Owl's Nest as calibration is a CPU-intensive and short duration task where as validation and strategy evaluation are memory intensive and longer duration tasks. Owl's Nest is limited to 48 hours of processing time where as Nessun Dorma is not.
+
+Jobs are typically submitted from the root of this repository. All paths should be relative to the root of the repository. For example, in this folder you can see the `test_cmds.txt` file which contains the commands to be executed for the test job and the `test_job.sh` file which contains an example Owl's Nest job script. There is a basic "Hello World" executable `exe` in the `bin` directory that simply takes an input and writes "Hello <input>" to the console. The commands file maps the standard output and standard error to log files under the `log` directory.
+
+Note how the paths are specified. In the job file we run the commands in parallel via: `torque-launch scripts/test_cmds.txt` and would submit this job to the queuing system via the root of this repository via `qsub scripts/test_job.sh`. Again note the paths in the commands file: `./bin/exe James1 > ./log/mylog1.log 2> ./log/myerrors1.log`. All the paths are specified relative to the root of the repository.
+
+Further country models should be added via a subfolder. For example the job file: `qsub scripts/moz/moz_10_jobs.sh`, which would correspond to the commands file: `scripts/moz/moz_10_cmds.txt`. The commands file should contain calibration commands such as: `./bin/MaSim -i ./conf/moz/calibration/cal_10_0.847_1.yml -o ./output/moz/calibration/cal_10_0.847_1_ -r SQLiteDistrictReporter -j 20 > ./log/moz/calibration/cal_10_0.847_1.log 2> ./log/moz/calibration/cal_10_0.847_1.err`

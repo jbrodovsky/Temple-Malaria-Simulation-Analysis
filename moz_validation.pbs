@@ -1,8 +1,8 @@
 #!/bin/bash
-#PBS -l walltime=48:00:00
+#PBS -l walltime=168:00:00
 #PBS -N MozValidation
 #PBS -q nd
-#PBS -l select=1:ncpus=20:host=nd04
+#PBS -l select=1:ncpus=20:host=nd02
 #PBS -o MozValidation.output
 #PBS -e MozValidation.error
 
@@ -26,7 +26,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         wait_for_available_slot  # <<< wait if too many jobs
 
         echo "Running: $line"
-        eval "$line" > ${INDEX}.output 2> ${INDEX}.error &
+        eval "$line" > MozValidation_${INDEX}.output 2> MozValidation_${INDEX}.error &
 
         ((INDEX++))
     fi
