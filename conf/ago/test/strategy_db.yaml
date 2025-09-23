@@ -1,0 +1,78 @@
+0:
+  name: 2006_pub
+  type: MFT
+  therapy_ids:
+  - 7
+  - 2
+  - 3
+  - 1
+  - 0
+  distribution:
+  - 0.028
+  - 0.003
+  - 0.14
+  - 0.107
+  - 0.016
+1:
+  name: 2007_pub
+  type: MFT
+  therapy_ids:
+  - 7
+  - 2
+  - 3
+  - 1
+  - 0
+  distribution:
+  - 0.028
+  - 0.003
+  - 0.14
+  - 0.107
+  - 0.016
+2:
+  name: 2011_pub
+  type: MFT
+  therapy_ids:
+  - 7
+  - 2
+  - 3
+  - 1
+  - 0
+  distribution:
+  - 0.027
+  - 0.009
+  - 0.025
+  - 0.0
+  - 0.022
+  - 0.217
+3:
+  name: 2015_pub
+  type: MFT
+  therapy_ids:
+  - 7
+  - 2
+  - 3
+  - 1
+  - 0
+  distribution:
+  - 0.093
+  - 0.083
+  - 0.02
+  - 0.07
+  - 0.016
+  - 0.767
+4:
+  name: 2016_pub
+  type: MFT
+  therapy_ids:
+  - 7
+  - 2
+  - 3
+  - 1
+  - 0
+  distribution:
+  - 0.093
+  - 0.083
+  - 0.02
+  - 0.07
+  - 0.016
+  - 0.767
