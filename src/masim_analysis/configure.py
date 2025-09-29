@@ -475,6 +475,7 @@ THERAPY_DB = {
     # COMBINATION - Sulfadoxine/pyrimethamine (SP)
     8: {"drug_id": [2], "dosing_days": [3]},
 }
+
 RELATIVE_INFECTIVITY = {
     "sigma": 3.91,
     "ro": 0.00031,

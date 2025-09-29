@@ -650,8 +650,11 @@ def predicted_prevalence(models_map, population_raster, treatment, beta_map):
 
 
 def get_last_year_statistics(
-    ave_cases: pd.DataFrame, ave_prevalence: pd.DataFrame, ave_population: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ave_cases: pd.DataFrame,
+    ave_prevalence_2_to_10: pd.DataFrame,
+    ave_prevalence_under_5: pd.DataFrame,
+    ave_population: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Calculate the final year statistics for cases, prevalence, and population.
 
@@ -694,18 +697,33 @@ def get_last_year_statistics(
     mean_population["mean"] = mean_population.mean(axis=1)
     mean_population["std"] = mean_population.std(axis=1)
 
-    mean_prevalence = (
-        ave_prevalence.loc[ave_prevalence["monthlydataid"].between(start_month, end_month, inclusive="left")]
+    mean_prevalence_2_to_10 = (
+        ave_prevalence_2_to_10.loc[
+            ave_prevalence_2_to_10["monthlydataid"].between(start_month, end_month, inclusive="left")
+        ]
         .copy()
         .groupby("locationid")
         .mean()
     )
-    mean_prevalence = mean_prevalence.drop(columns=["monthlydataid"])
-    mean_prevalence = mean_prevalence.drop(columns=["pfpr2to10"])
-    mean_prevalence["mean"] = mean_prevalence.mean(axis=1)
-    mean_prevalence["std"] = mean_prevalence.std(axis=1)
+    mean_prevalence_2_to_10 = mean_prevalence_2_to_10.drop(columns=["monthlydataid"])
+    mean_prevalence_2_to_10 = mean_prevalence_2_to_10.drop(columns=["pfpr2to10"])
+    mean_prevalence_2_to_10["mean"] = mean_prevalence_2_to_10.mean(axis=1)
+    mean_prevalence_2_to_10["std"] = mean_prevalence_2_to_10.std(axis=1)
 
-    return mean_cases, mean_prevalence, mean_population
+    mean_prevalence_under_5 = (
+        ave_prevalence_under_5.loc[
+            ave_prevalence_under_5["monthlydataid"].between(start_month, end_month, inclusive="left")
+        ]
+        .copy()
+        .groupby("locationid")
+        .mean()
+    )
+    mean_prevalence_under_5 = mean_prevalence_under_5.drop(columns=["monthlydataid"])
+    mean_prevalence_under_5 = mean_prevalence_under_5.drop(columns=["pfprunder5"])
+    mean_prevalence_under_5["mean"] = mean_prevalence_under_5.mean(axis=1)
+    mean_prevalence_under_5["std"] = mean_prevalence_under_5.std(axis=1)
+
+    return mean_cases, mean_prevalence_2_to_10, mean_prevalence_under_5, mean_population
 
 
 def calibrate(country_code: str) -> None:

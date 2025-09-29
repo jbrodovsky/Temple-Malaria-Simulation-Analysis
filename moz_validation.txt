@@ -1,20 +1,11 @@
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 0
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 1
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 2
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 3
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 4
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 5
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 6
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 7
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 8
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 9
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 10
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 11
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 12
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 13
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 14
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 15
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 16
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 17
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 18
-./bin/MaSim -i conf/moz/moz_validation.yml -o output/moz/validation/moz_validation_ -r SQLitePixelReporter -j 19
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.50.yml -o output/moz/validation/moz_validation_scaled_0.50 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.55.yml -o output/moz/validation/moz_validation_scaled_0.55 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.60.yml -o output/moz/validation/moz_validation_scaled_0.60 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.65.yml -o output/moz/validation/moz_validation_scaled_0.65 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.70.yml -o output/moz/validation/moz_validation_scaled_0.70 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.75.yml -o output/moz/validation/moz_validation_scaled_0.75 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.80.yml -o output/moz/validation/moz_validation_scaled_0.80 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.85.yml -o output/moz/validation/moz_validation_scaled_0.85 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.90.yml -o output/moz/validation/moz_validation_scaled_0.90 -r SQLitePixelReporter
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.95.yml -o output/moz/validation/moz_validation_scaled_0.95 -r SQLitePixelReporter
+

@@ -145,7 +145,7 @@ spatial_model:
     beta: 0
     gamma: 0
 seasonal_info:
-  enable: true
+  enable: false
   mode: rainfall
   rainfall:
     filename: data/moz/moz_seasonality.csv
@@ -688,9 +688,9 @@ therapy_db:
     - 3
 strategy_db:
   0:
-    name: '2011'
+    name: 2003_pub
     type: MFT
-    therapy_ids:
+    therapy_ids: &id001
     - 7
     - 8
     - 6
@@ -698,105 +698,98 @@ strategy_db:
     - 5
     - 1
     distribution:
-    - 0.083661
-    - 0.234252
-    - 0.027559
-    - 0.019685
-    - 0
-    - 0.589567
+    - 0.107
+    - 0.107
+    - 0.149
+    - 0.0
+    - 0.149
+    - 0.098
+    - 0.0
   1:
-    name: '2015'
+    name: 2011_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 8
-    - 6
-    - 4
-    - 5
-    - 1
+    therapy_ids: *id001
     distribution:
-    - 0.003914
-    - 0.07045
-    - 0.002935
-    - 0.001957
-    - 0
-    - 0.014677
-    - 0.906067
+    - 0.085
+    - 0.23800000000000004
+    - 0.027999999999999997
+    - 0.02
+    - 0.0
+    - 0.046
+    - 0.599
   2:
-    name: '2018'
+    name: 2015_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 8
-    - 6
-    - 4
-    - 5
-    - 1
+    therapy_ids: *id001
     distribution:
-    - 0.300597
-    - 0.006965
-    - 0.002985
-    - 0.00199
-    - 0.004975
-    - 0.00199
-    - 0.975124
+    - 0.004
+    - 0.07200000000000001
+    - 0.0030000000000000005
+    - 0.002
+    - 0.0
+    - 0.015
+    - 0.9259999999999999
   3:
-    name: '2022'
+    name: 2018_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 8
-    - 6
-    - 4
-    - 5
-    - 1
+    therapy_ids: *id001
     distribution:
-    - 0.025819
-    - 0.028798
-    - 0
-    - 0.027805
-    - 0.059583
-    - 0.013903
-    - 0.844091
+    - 0.006000000000000001
+    - 0.006999999999999999
+    - 0.0030000000000000005
+    - 0.002
+    - 0.005
+    - 0.002
+    - 0.98
   4:
-    name: '2023'
+    name: 2022_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 8
-    - 6
-    - 4
-    - 5
-    - 1
+    therapy_ids: *id001
     distribution:
-    - 0.025819
-    - 0.028798
-    - 0
-    - 0.027805
-    - 0.059583
-    - 0.013903
-    - 0.844091
+    - 0.026000000000000002
+    - 0.028999999999999998
+    - 0.0
+    - 0.027999999999999997
+    - 0.06
+    - 0.013999999999999999
+    - 0.8500000000000001
+  5:
+    name: 2023_pub
+    type: MFT
+    therapy_ids: *id001
+    distribution:
+    - 0.026000000000000002
+    - 0.028999999999999998
+    - 0.0
+    - 0.027999999999999997
+    - 0.06
+    - 0.013999999999999999
+    - 0.8500000000000001
 events:
 - name: turn_off_mutation
   info:
   - day: 2011/01/01
+- name: 2003_strategy
+  info:
+  - day: 2003/01/01
+    strategy_id: 0
 - name: 2011_strategy
   info:
-  - day: 2011-01-01
-    strategy_id: 0
+  - day: 2011/01/01
+    strategy_id: 1
 - name: 2015_strategy
   info:
   - day: 2015/01/01
-    strategy_id: 1
+    strategy_id: 2
 - name: 2018_strategy
   info:
   - day: 2018/01/01
-    strategy_id: 2
+    strategy_id: 3
 - name: 2022_strategy
   info:
   - day: 2022/01/01
-    strategy_id: 3
+    strategy_id: 4
 - name: 2023_strategy
   info:
   - day: 2023/01/01
-    strategy_id: 4
+    strategy_id: 5
