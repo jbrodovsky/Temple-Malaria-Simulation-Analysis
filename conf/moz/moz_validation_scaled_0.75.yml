@@ -137,7 +137,7 @@ raster_db:
   - -1.0
   beta_by_location:
   - -1.0
-  beta_raster: moz_beta_scaled_0.75.asc
+  beta_raster: data/moz/moz_beta_scaled_0.75.asc
 spatial_model:
   name: Wesolowski
   Wesolowski:
