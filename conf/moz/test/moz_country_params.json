@@ -59,5 +59,8 @@
     "target_population": 33635160,
     "starting_date": "2011/01/01",
     "ending_date": "2023/12/31",
-    "start_of_comparison_period": "2022/01/01"
+    "start_of_comparison_period": "2022/01/01",
+    "target_case_count": 18600000,
+    "lower_bound_case_count": 19000000,
+    "upper_bound_case_count": 18000000
 }

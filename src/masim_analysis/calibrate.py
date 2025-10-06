@@ -307,6 +307,45 @@ def process_missing_jobs(
                         continue
 
 
+def sinusoidal(x, amplitude, period, phase, offset):
+    """
+    Generate a seasonal signal according to a sinusoidal model.
+    """
+    return amplitude * np.sin((2 * np.pi / period) * (x - phase)) + offset
+
+
+def positive_sinusoidal(x, amplitude, period, phase, offset):
+    """
+    Generate a seasonal signal according to a sinusoidal model.
+    """
+    s = sinusoidal(x, amplitude, period, phase, offset)
+    s[s <= offset] = offset
+    return s
+
+
+def linear(x, m, b):
+    """
+    Linear function for curve fitting.
+
+    Equation: y = mx + b
+
+    Parameters
+    ----------
+    x : array_like
+        The independent variable.
+    m : float
+        The slope of the line.
+    b : float
+        The y-intercept of the line.
+
+    Returns
+    -------
+    array_like
+        The calculated y-values of the linear function.
+    """
+    return m * x + b
+
+
 def sigmoid(x, a, b, c):
     """
     Sigmoid function for curve fitting.

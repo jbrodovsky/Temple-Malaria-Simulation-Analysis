@@ -7,11 +7,16 @@ databases, performing data analysis, and generating plots.
 
 import glob
 import os
+from pathlib import Path
 import sqlite3
 
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 from matplotlib.figure import Figure
+
+from masim_analysis.configure import CountryParams
 
 table_names = [
     "monthlydata",
@@ -603,6 +608,197 @@ def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: 
     ax.set_ylabel("Frequency")
     ax.legend()
 
+    return fig
+
+
+def get_average_summary_statistics(
+    path: str | Path, country: CountryParams
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Get average summary statistics across all .db files in a given directory.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the directory containing .db files.
+
+    Returns
+    -------
+    tuple
+        A tuple containing DataFrames for average population, total clinical episodes, .
+    """
+    path = Path(path)
+    if not path.exists() or not path.is_dir():
+        raise NotADirectoryError(f"Path {path} is not a valid directory.")
+    db_files = list(path.glob("*.db"))
+    if len(db_files) == 0:
+        raise FileNotFoundError(f"No .db files found in directory {path}.")
+
+    ave_population = pd.DataFrame(columns=["monthlydataid", "locationid", "population"])
+    ave_cases = pd.DataFrame(columns=["monthlydataid", "locationid", "clinicalepisodes"])
+    ave_prevalence_2_to_10 = pd.DataFrame(columns=["monthlydataid", "locationid", "pfpr2to10"])
+    ave_cases_2_to_10 = pd.DataFrame(columns=["monthlydataid", "locationid", "cases2to10"])
+    ave_prevalence_under_5 = pd.DataFrame(columns=["monthlydataid", "locationid", "pfprunder5"])
+    ave_cases_under_5 = pd.DataFrame(columns=["monthlydataid", "locationid", "casesunder5"])
+
+    for rep in range(20):
+        data = get_table(
+            os.path.join(
+                "output", country.country_code, "validation", f"{country.country_code}_validation_monthly_data_{rep}.db"
+            ),
+            "monthlysitedata",
+        )
+        cases_2_to_10 = data[
+            [
+                "monthlydataid",
+                "locationid",
+                "clinicalepisodes_by_age_class_2_3",
+                "clinicalepisodes_by_age_class_3_4",
+                "clinicalepisodes_by_age_class_4_5",
+                "clinicalepisodes_by_age_class_5_6",
+                "clinicalepisodes_by_age_class_6_7",
+                "clinicalepisodes_by_age_class_7_8",
+                "clinicalepisodes_by_age_class_8_9",
+                "clinicalepisodes_by_age_class_9_10",
+            ]
+        ].copy()
+        cases_2_to_10["clinicalepisodes_2_to_10"] = cases_2_to_10[
+            [
+                "clinicalepisodes_by_age_class_2_3",
+                "clinicalepisodes_by_age_class_3_4",
+                "clinicalepisodes_by_age_class_4_5",
+                "clinicalepisodes_by_age_class_5_6",
+                "clinicalepisodes_by_age_class_6_7",
+                "clinicalepisodes_by_age_class_7_8",
+                "clinicalepisodes_by_age_class_8_9",
+                "clinicalepisodes_by_age_class_9_10",
+            ]
+        ].sum(axis=1)
+        cases_under_5 = data[
+            [
+                "monthlydataid",
+                "locationid",
+                "clinicalepisodes_by_age_class_0_1",
+                "clinicalepisodes_by_age_class_1_2",
+                "clinicalepisodes_by_age_class_2_3",
+                "clinicalepisodes_by_age_class_3_4",
+                "clinicalepisodes_by_age_class_4_5",
+            ]
+        ].copy()
+        cases_under_5["clinicalepisodes_under5"] = cases_under_5[
+            [
+                "clinicalepisodes_by_age_class_0_1",
+                "clinicalepisodes_by_age_class_1_2",
+                "clinicalepisodes_by_age_class_2_3",
+                "clinicalepisodes_by_age_class_3_4",
+                "clinicalepisodes_by_age_class_4_5",
+            ]
+        ].sum(axis=1)
+        # Add a column to the ave_* data frames from data
+        try:
+            ave_population = ave_population.merge(
+                data[["monthlydataid", "locationid", "population"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+            ave_cases = ave_cases.merge(
+                data[["monthlydataid", "locationid", "clinicalepisodes"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+            ave_prevalence_2_to_10 = ave_prevalence_2_to_10.merge(
+                data[["monthlydataid", "locationid", "pfpr2to10"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+            ave_cases_2_to_10 = ave_cases_2_to_10.merge(
+                cases_2_to_10[["monthlydataid", "locationid", "clinicalepisodes_2_to_10"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+            ave_prevalence_under_5 = ave_prevalence_under_5.merge(
+                data[["monthlydataid", "locationid", "pfprunder5"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+            ave_cases_under_5 = ave_cases_under_5.merge(
+                cases_under_5[["monthlydataid", "locationid", "clinicalepisodes_under5"]].copy(),
+                how="outer",
+                on=["monthlydataid", "locationid"],
+                suffixes=("", f"_{rep}"),
+            )
+        except Exception as e:
+            print(f"Error processing replication {rep}: {e}")
+    return (
+        ave_population,
+        ave_cases,
+        ave_prevalence_2_to_10,
+        ave_cases_2_to_10,
+        ave_prevalence_under_5,
+        ave_cases_under_5,
+    )
+
+
+def plot_prevalence_trend(
+    observed: NDArray | list[float],
+    simulated: NDArray | list[float],
+    populations: NDArray | list[float] | None = None,
+    age_str: str | None = None,
+) -> Figure:
+    """
+    Plot prevalence trend from observed data.
+
+    Parameters
+    ----------
+    observed : NDArray or list of float
+        Observed prevalence data.
+
+    simulated : NDArray or list of float
+        Simulated prevalence data.
+
+    populations : NDArray or list of float, optional
+        Population data for weighting, by default None.
+
+    age_str : str, optional
+        Age group string for title, by default None.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The matplotlib Figure object containing the plot.
+    """
+    fig, ax = plt.subplots(figsize=(12, 12))
+    if populations is None:
+        populations = np.ones(len(observed))
+    ax.scatter(
+        observed,
+        simulated,
+        s=populations / np.max(populations) * 100,
+        marker="o",
+        alpha=0.35,
+        cmap="viridis",
+        c=populations,
+        label="Predicted PfPR",
+    )
+    cbar = ax.figure.colorbar(ax.collections[0])
+    cbar.set_label("Population", rotation=270, labelpad=15)
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, x, color="red", linestyle="--")
+    ax.set_xlim((0, 0.6))
+    ax.set_ylim((0, 0.6))
+    ax.set_xlabel("Observed PfPR")
+    ax.set_ylabel("Predicted PfPR")
+    if age_str is None:
+        ax.set_title("Observed vs Predicted PfPR")
+    else:
+        ax.set_title(f"Observed vs Predicted PfPR ({age_str.replace('_', ' ')})")
+    ax.set_xticks(np.arange(0, 0.6, 0.1))
+    ax.legend()
     return fig
 
 

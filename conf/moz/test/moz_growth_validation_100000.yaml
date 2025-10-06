@@ -145,7 +145,7 @@ spatial_model:
     beta: 0
     gamma: 0
 seasonal_info:
-  enable: false
+  enable: true
   mode: rainfall
   rainfall:
     filename: data/moz/moz_seasonality.csv

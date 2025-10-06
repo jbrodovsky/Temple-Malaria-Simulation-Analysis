@@ -1,10 +1,10 @@
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.50.yml -o output/moz/validation/moz_validation_scaled_0.50 -r SQLitePixelReporter >MozScaled_50.output 2>MozScaled_50.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.55.yml -o output/moz/validation/moz_validation_scaled_0.55 -r SQLitePixelReporter >MozScaled_55.output 2>MozScaled_55.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.60.yml -o output/moz/validation/moz_validation_scaled_0.60 -r SQLitePixelReporter >MozScaled_60.output 2>MozScaled_60.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.65.yml -o output/moz/validation/moz_validation_scaled_0.65 -r SQLitePixelReporter >MozScaled_65.output 2>MozScaled_65.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.70.yml -o output/moz/validation/moz_validation_scaled_0.70 -r SQLitePixelReporter >MozScaled_70.output 2>MozScaled_70.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.75.yml -o output/moz/validation/moz_validation_scaled_0.75 -r SQLitePixelReporter >MozScaled_75.output 2>MozScaled_75.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.80.yml -o output/moz/validation/moz_validation_scaled_0.80 -r SQLitePixelReporter >MozScaled_80.output 2>MozScaled_80.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.85.yml -o output/moz/validation/moz_validation_scaled_0.85 -r SQLitePixelReporter >MozScaled_85.output 2>MozScaled_85.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.90.yml -o output/moz/validation/moz_validation_scaled_0.90 -r SQLitePixelReporter >MozScaled_90.output 2>MozScaled_90.error &
-./bin/MaSim -i conf/moz/moz_validation_scaled_0.95.yml -o output/moz/validation/moz_validation_scaled_0.95 -r SQLitePixelReporter >MozScaled_95.output 2>MozScaled_95.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.22.yml -o output/moz/validation/moz_validation_scaled_0.22 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_22.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.25.yml -o output/moz/validation/moz_validation_scaled_0.25 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_25.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.27.yml -o output/moz/validation/moz_validation_scaled_0.27 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_27.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.30.yml -o output/moz/validation/moz_validation_scaled_0.30 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_30.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.32.yml -o output/moz/validation/moz_validation_scaled_0.32 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_32.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.35.yml -o output/moz/validation/moz_validation_scaled_0.35 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_35.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.37.yml -o output/moz/validation/moz_validation_scaled_0.37 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_37.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.40.yml -o output/moz/validation/moz_validation_scaled_0.40 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_40.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.42.yml -o output/moz/validation/moz_validation_scaled_0.42 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_42.error &
+./bin/MaSim -i conf/moz/moz_validation_scaled_0.45.yml -o output/moz/validation/moz_validation_scaled_0.45 -r SQLitePixelReporter > MozScaled_.output 2> MozScaled_45.error &

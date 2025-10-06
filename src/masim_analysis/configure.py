@@ -9,6 +9,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 from ruamel.yaml import YAML
@@ -475,7 +476,6 @@ THERAPY_DB = {
     # COMBINATION - Sulfadoxine/pyrimethamine (SP)
     8: {"drug_id": [2], "dosing_days": [3]},
 }
-
 RELATIVE_INFECTIVITY = {
     "sigma": 3.91,
     "ro": 0.00031,
@@ -505,6 +505,9 @@ class CountryParams:
     starting_date: date
     ending_date: date
     start_of_comparison_period: date
+    target_case_count: int
+    lower_bound_case_count: int
+    upper_bound_case_count: int
 
     def to_dict(self):
         out = asdict(self)
@@ -527,16 +530,26 @@ class CountryParams:
             starting_date=datetime.strptime(data["starting_date"], "%Y/%m/%d"),
             ending_date=datetime.strptime(data["ending_date"], "%Y/%m/%d"),
             start_of_comparison_period=datetime.strptime(data["start_of_comparison_period"], "%Y/%m/%d"),
+            target_case_count=data["target_case_count"],
+            lower_bound_case_count=data["lower_bound_case_count"],
+            upper_bound_case_count=data["upper_bound_case_count"],
         )
 
     @staticmethod
-    def load(file_path: str) -> "CountryParams":
+    def load(name: str | None = None, file_path: str | Path | None = None) -> "CountryParams":
         """
         A simple static class method for loading country parameters from a JSON file.
         """
-        with open(file_path, "r") as f:
-            data = json.load(f)
-        return CountryParams.from_dict(data)
+        assert name or file_path, "Either name or file_path must be provided."
+
+        if file_path:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+            return CountryParams.from_dict(data)
+
+        # If only name is provided, construct the file path
+        file_path = Path("conf") / name / "test" / f"{name}_country_params.json"  # type: ignore
+        return CountryParams.load(file_path=file_path)
 
 
 @dataclass
