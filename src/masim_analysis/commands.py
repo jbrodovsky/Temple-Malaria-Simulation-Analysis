@@ -10,7 +10,22 @@ This module includes functions to:
 import argparse
 import os
 from math import ceil, floor
+from pathlib import Path
 from typing import Optional
+
+
+# @dataclass
+# def cluster:
+#     name: str
+#     node_memory: int  # GB
+#     node_cores: int  # Cores
+#     job_memory: int  # GB
+#     time_per_job: int  # Hour
+#     max_wall_time: int  # Hour
+#
+#     @property
+#     def max_cores_per_node(self) -> int:
+#         return floor(self.node_memory / self.job_memory) - 1
 
 NODE_MEMORY = 128  # GB
 NODE_CORES = 28  # Cores
@@ -19,6 +34,7 @@ MAX_CORES_PER_NODE = floor(NODE_MEMORY / JOB_MEMORY) - 1  # Cores
 TIME_PER_JOB = 5  # Hour
 MAX_WALL_TIME = 48  # Hour
 JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
+
 # Multiprocessing notes:
 # - We can specify the number of repetitions for each strategy using the -j flag
 # - Previous implementation seems to have caused the cluster to run out of memory
@@ -36,16 +52,19 @@ JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
 
 
 def generate_commands(
-    input_configuration_file: str, output_directory: str, repetitions: int = 1
+    input_configuration_file: Path | str,
+    output_directory: Path | str,
+    repetitions: int = 1,
+    use_pixel_reporter: bool = True,
 ) -> tuple[str, list[str]]:
     """
     Generate commands for MaSim.
 
     Parameters
     ----------
-    input_configuration_file : str
+    input_configuration_file : Path | str
         The input configuration file path, ex: ./conf/rwa/AL5.yml.
-    output_directory : str
+    output_directory : Path | str
         The output directory to store simulation results, ex: ./output/rwa.
     repetitions : int, optional
         The number of repetitions, by default 1.
@@ -55,29 +74,34 @@ def generate_commands(
     tuple[str, list[str]]
         A tuple containing the commands filename and a list of generated commands.
     """
+    # Convert to Path objects for consistent handling
+    input_path = Path(input_configuration_file)
+    output_path = Path(output_directory)
+
     # Check if the output directory exists
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    if not output_path.exists():
+        output_path.mkdir(parents=True, exist_ok=True)
 
     # Parse the strategy name
-    strategy_name = os.path.basename(input_configuration_file).split(".yml")[0]
+    strategy_name = input_path.stem
     commands_filename = f"{strategy_name}_{repetitions}reps.txt"
-    if os.path.exists(commands_filename):
-        os.remove(commands_filename)
+    commands_path = Path(commands_filename)
+    if commands_path.exists():
+        commands_path.unlink()
     commands = []
-    # with open(commands_filename, "w") as f:
-    output_file = os.path.join(output_directory, f"{strategy_name}")
-
+    output_file = output_path / strategy_name
+    if use_pixel_reporter:
+        reporter = "SQLitePixelReporter"
+    else:
+        reporter = "SQLiteDistrictReporter"
     for i in range(repetitions):
-        commands.append(
-            f"./bin/MaSim -i {input_configuration_file} -o {output_file}_ -r SQLiteDistrictReporter -j {i}\n"
-        )
+        commands.append(f"./bin/MaSim -i {input_path} -o {output_file}_ -r {reporter} -j {i}\n")
     return commands_filename, commands
 
 
-def batch_generate_command_jobs(
-    input_configuration_directory: str,
-    output_directory: str,
+def batch_generate_commands(
+    input_configuration_directory: Path | str,
+    output_directory: Path | str,
     repetitions: int = 1,
 ) -> list[str]:
     """
@@ -85,9 +109,9 @@ def batch_generate_command_jobs(
 
     Parameters
     ----------
-    input_configuration_directory : str
+    input_configuration_directory : Path | str
         The input configuration directory, ex: ./input/rwa.
-    output_directory : str
+    output_directory : Path | str
         The output directory, ex: ./output/rwa.
     repetitions : int, optional
         The number of repetitions, by default 1.
@@ -97,18 +121,19 @@ def batch_generate_command_jobs(
     list[str]
         A list of all generated commands.
     """
+    # Convert to Path objects for consistent handling
+    input_path = Path(input_configuration_directory)
+    output_path = Path(output_directory)
+
     commands = []
-    for root, _, files in os.walk(input_configuration_directory):
-        for file in files:
-            if file.endswith(".yml"):
-                input_configuration_file = os.path.join(root, file)
-                _, new_commands = generate_commands(
-                    input_configuration_file,
-                    output_directory,
-                    repetitions,
-                    # in_parallel=True,
-                )
-                commands.extend(new_commands)
+    for yml_file in input_path.rglob("*.yml"):
+        _, new_commands = generate_commands(
+            yml_file,
+            output_path,
+            repetitions,
+            # in_parallel=True,
+        )
+        commands.extend(new_commands)
     return commands
 
 
@@ -208,11 +233,15 @@ def main() -> None:
 
     args = parser.parse_args()
     # generate_commands(args.input, args.output, args.repetitions)
-    if os.path.isdir(args.input):
-        commands = batch_generate_command_jobs(args.input, args.output, args.repetitions)
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+
+    if input_path.is_dir():
+        commands = batch_generate_commands(input_path, output_path, args.repetitions)
         filename = "batch_commands.txt"
     else:
-        filename, commands = generate_commands(args.input, args.output, args.repetitions)
+        filename, commands = generate_commands(input_path, output_path, args.repetitions)
+
     with open(filename, "w") as f:
         for command in commands:
             f.write(command)

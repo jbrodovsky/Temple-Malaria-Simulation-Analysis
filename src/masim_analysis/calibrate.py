@@ -7,24 +7,31 @@ to calibration data.
 """
 
 # Country calibration script
+import argparse
 import json
 import os
+import subprocess
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date
+from pathlib import Path
 from typing import Optional
+import logging
 
 import numpy as np
-import pandas as pd
+from pandas import DataFrame
 
+from matplotlib import pyplot as plt
 from numpy.typing import NDArray, ArrayLike
 import numpy.typing as npt
-import pandas
 from ruamel.yaml import YAML
 from ruamel.yaml.emitter import EmitterError
 
 from scipy.optimize import curve_fit
-from tqdm import tqdm
 
-from masim_analysis import analysis, commands, configure
+from masim_analysis import analysis, commands, configure, utils
+from masim_analysis.configure import CountryParams
+
 
 yaml = YAML()
 
@@ -33,6 +40,130 @@ BETAS = [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.15, 0
 POPULATION_BINS = [10, 20, 30, 40, 50, 75, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 20000]
 
 
+# ==== Logger setup ====
+def get_country_logger(country_code: str) -> logging.Logger:
+    """
+    Returns a logger that writes to log/<country_code>/calibration.log.
+    """
+    log_dir = Path("log") / country_code
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "calibration.log"
+
+    logger = logging.getLogger(f"calibration.{country_code}")
+    logger.setLevel(logging.INFO)
+
+    # Avoid adding multiple handlers if logger is reused
+    if not logger.handlers:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        logger.addHandler(file_handler)
+        # Optional: also log to console
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        logger.addHandler(stream_handler)
+
+    return logger
+
+
+# ==== Generic multiprocessing utilities ====
+def get_optimal_worker_count() -> int:
+    """
+    Determine optimal number of worker processes based on system resources.
+
+    Returns
+    -------
+    int
+        Recommended number of worker processes
+    """
+    cpu_count = os.cpu_count() or 1
+    # Use 75% of available CPUs, with a minimum of 1 and maximum of 16
+    # This leaves some headroom for the system and prevents oversubscription
+    optimal_workers = max(1, min(16, int(cpu_count * 0.75)))
+    return optimal_workers
+
+
+def run_simulation_command(cmd: str) -> tuple[str, bool, str]:
+    """
+    Execute a single MaSim simulation command.
+
+    Parameters
+    ----------
+    cmd : str
+        The command string to execute
+
+    Returns
+    -------
+    tuple[str, bool, str]
+        A tuple containing (command, success_flag, error_message)
+    """
+    try:
+        # Remove trailing newline if present
+        cmd = cmd.strip()
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=3600,  # 1 hour timeout per simulation
+        )
+
+        if result.returncode == 0:
+            return (cmd, True, "")
+        else:
+            return (cmd, False, result.stderr)
+
+    except subprocess.TimeoutExpired:
+        return (cmd, False, "Command timed out after 1 hour")
+    except Exception as e:
+        return (cmd, False, f"Unexpected error: {str(e)}")
+
+
+def multiprocess(cmds: list[str], max_workers: int, logger: logging.Logger) -> tuple[int, list[tuple[str, str]]]:
+    """
+    Generic multiprocessing wrapper for a list of shell commands.
+    """
+    successful_runs = 0
+    failed_runs = 0
+    failed_commands = []
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all jobs
+        future_to_cmd = {executor.submit(run_simulation_command, cmd): cmd for cmd in cmds}
+
+        # Process completed jobs with progress bar
+        for future in as_completed(future_to_cmd):
+            try:
+                cmd, success, error_msg = future.result()
+                if success:
+                    logger.info(f"Successfully executed command: {cmd}")
+                    successful_runs += 1
+                else:
+                    failed_runs += 1
+                    failed_commands.append((cmd, error_msg))
+                    # Only log first few failures to avoid spam
+                    if failed_runs <= 5:
+                        logger.error(f"Failed command: {cmd}")
+                        logger.error(f"Error: {error_msg}")
+                    elif failed_runs == 6:
+                        logger.error("Additional failures will be logged to file...")
+
+            except Exception as e:
+                failed_runs += 1
+                cmd = future_to_cmd[future]
+                error_msg = f"Future execution error: {str(e)}"
+                failed_commands.append((cmd, error_msg))
+                if failed_runs <= 5:
+                    logger.error(f"Failed command: {cmd}")
+                    logger.error(f"Error: {error_msg}")
+
+    return successful_runs, failed_commands
+
+
+# ==== Configuration generation ====
 def generate_configuration_files(
     country_code: str,
     calibration_year: int,
@@ -44,6 +175,7 @@ def generate_configuration_files(
     # seasonality_file_name: str = "seasonality",
     strategy_db: dict[int, dict[str, str | list[int]]] = configure.STRATEGY_DB,
     # events: Optional[list[dict]] = None,
+    logger: Optional[logging.Logger] = None,
 ) -> None:
     """
     Generate MaSim configuration files for a given country and calibration parameters.
@@ -82,7 +214,7 @@ def generate_configuration_files(
     # Create default execution control dictionary
 
     # Generate the configuration files
-    for pop in tqdm(POPULATION_BINS):
+    for pop in POPULATION_BINS:
         for access in access_rates:
             for beta in BETAS:
                 execution_control = configure.configure(
@@ -107,7 +239,8 @@ def generate_configuration_files(
                 try:
                     yaml.dump(execution_control, open(output_path, "w"))
                 except EmitterError as e:
-                    print(f"Error writing YAML file {output_path}: {e}")
+                    if logger:
+                        logger.error(f"Error writing YAML file {output_path}: {e}")
 
 
 def write_pixel_data_files(raster_db: dict, population: int):
@@ -129,125 +262,32 @@ def write_pixel_data_files(raster_db: dict, population: int):
         file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n1")
 
 
-def generate_command_and_job_files(
-    country_code: str,
-    access_rates: list[float],
-    repetitions: int = 20,
-    cores: int = 28,
-    nodes: int = 1,
-):
+def generate_calibration_commands(
+    country: CountryParams, access_rates: list[float], repetitions: int = 20, output_directory: Path = Path("output")
+) -> list[str]:
     """
-    Generate MaSim command files and job submission scripts for calibration runs.
-
-    Parameters
-    ----------
-    country_code : str
-        The country code (e.g., "RWA", "MOZ").
-    population_bins : list[int]
-        List of population bins used in calibration.
-    access_rates : list[float]
-        List of treatment access rates used in calibration.
-    beta_values : list[float]
-        List of beta values used in calibration.
-    repetitions : int, optional
-        Number of repetitions for each simulation, by default 20.
-    cores : int, optional
-        Number of cores to request per node for job submission, by default 28.
-    nodes : int, optional
-        Number of nodes to request for job submission, by default 1.
+    Generate the list of calibration commands
     """
-    # Generate the command and job files
-    for pop in tqdm(POPULATION_BINS):
-        filename = f"{country_code}_{pop}_cmds.txt"
-        with open(filename, "w") as f:
-            for access in access_rates:
-                for beta in BETAS:
-                    for j in range(repetitions):
-                        f.write(
-                            f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {j + 1}\n"
-                        )
-        commands.generate_job_file(
-            filename,
-            job_name=f"{country_code}_{pop}_jobs",
-            cores_override=cores,
-            nodes_override=nodes,
-        )
+    strategy_db = yaml.load(open(os.path.join("conf", country.country_code, "test", "strategy_db.yaml"), "r"))
 
-
-def summarize_calibration_results(
-    country_code: str,
-    access_rates: list[float],
-    comparison_start_month: int,
-    comparison_end_month: int,
-    output_dir: str,
-    repetitions: int = 20,
-) -> pandas.DataFrame:
-    """
-    Summarize the results of MaSim calibration runs.
-
-    This function reads output files from multiple simulation runs,
-    aggregates relevant metrics (e.g., PfPR), and returns a summary DataFrame.
-
-    Parameters
-    ----------
-    country_code : str
-        The country code.
-    population_bins : list[int]
-        Population bins used in calibration.
-    access_rates : list[float]
-        Access rates used in calibration.
-    beta_values : list[float]
-        Beta values used in calibration.
-    comparison_year : int
-        The year used for comparison or validation of results.
-    output_dir : str
-        Directory containing the MaSim output files.
-    repetitions : int, optional
-        Number of repetitions run for each parameter set, by default 20.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A DataFrame summarizing the calibration results.
-    """
-    base_file_path = os.path.join(output_dir, country_code, "calibration")
-    summary = pandas.DataFrame(
-        columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
+    generate_configuration_files(
+        country.country_code,
+        country.start_of_comparison_period.year,
+        access_rates,
+        country.birth_rate,
+        country.death_rate,
+        country.initial_age_structure,
+        country.age_distribution,
+        strategy_db=strategy_db,
     )
-    # comparison = date(comparison_year, 1, 1)
-    # year_end = date(comparison_year + 1, 1, 1)
-    # Process summary
-    for pop in tqdm(POPULATION_BINS):
-        for access in access_rates:
-            for beta in BETAS:
-                for i in range(1, repetitions + 1):
-                    filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
-                    file = os.path.join(base_file_path, f"{filename}.db")
-                    try:
-                        data = analysis.get_table(file, "monthlysitedata")
-                    except FileNotFoundError as _:
-                        filename = f"cal_{pop}_{access}_{int(beta)}_monthly_data_{i}"  # TODO: #15 fix the masim file output to ensure consistent int/float digits
-                        file = os.path.join(base_file_path, f"{filename}.db")
-                        try:
-                            data = analysis.get_table(file, "monthlysitedata")
-                        except FileNotFoundError as e:
-                            print(f"File not found: {e}")
-                            continue
-                    data = data.loc[
-                        data["monthlydataid"].between(comparison_start_month, comparison_end_month, inclusive="left")
-                    ]
-                    summary.loc[filename] = data[["pfprunder5", "pfpr2to10", "pfprall"]].mean()
-                    # mean_pop = data["population"].mean()
-                    # clinincal_episodes = data["clinicalepisodes"].sum()
-                    # pfpr = clinincal_episodes / mean_pop
-                    summary.loc[filename, "population"] = pop
-                    summary.loc[filename, "access_rate"] = access
-                    summary.loc[filename, "beta"] = beta
-                    summary.loc[filename, "iteration"] = int(i)
-                    # summary.loc[filename, "pfpr"] = pfpr
 
-    # summary.to_csv(f"{base_file_path}/calibration_summary.csv")
-    return summary
+    # Generate commands list
+    cmds = commands.batch_generate_commands(
+        Path("conf") / country.country_code / "calibration",
+        output_directory / country.country_code / "calibration",
+        repetitions,
+    )
+    return cmds
 
 
 def process_missing_jobs(
@@ -278,7 +318,7 @@ def process_missing_jobs(
         Number of repetitions expected for each parameter set, by default 20.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
-    for pop in tqdm(POPULATION_BINS):
+    for pop in POPULATION_BINS:
         for access in access_rates:
             for beta in BETAS:
                 for i in range(repetitions):
@@ -307,6 +347,7 @@ def process_missing_jobs(
                         continue
 
 
+# ==== Fitting functions ====
 def sinusoidal(x, amplitude, period, phase, offset):
     """
     Generate a seasonal signal according to a sinusoidal model.
@@ -397,9 +438,7 @@ def inverse_sigmoid(y, a, b, c):
 
 
 def fit_log_sigmoid_model(
-    betas: ArrayLike,
-    pfpr: ArrayLike,
-    pfpr_cutoff: float = 0.0,
+    betas: ArrayLike, pfpr: ArrayLike, pfpr_cutoff: float = 0.0, logger: Optional[logging.Logger] = None
 ) -> NDArray[np.float64]:
     """
     Fit sigmoid models to calibration data for different populations and treatment access rates.
@@ -442,7 +481,7 @@ def fit_log_sigmoid_model(
         y_filtered = pfpr
 
     if len(X_filtered) < 3:  # Check if enough data points for regression
-        print(f"Not enough data points for regression: {len(X_filtered)} points found.")
+        logging.warning(f"Not enough data points for regression: {len(X_filtered)} points found.")
         return np.empty(0)
     try:
         # Perform sigmoid regression
@@ -455,17 +494,22 @@ def fit_log_sigmoid_model(
         return np.array(popt)  # Store parameters
 
     except RuntimeError:
-        print("Curve fitting failed to converge. Not enough data points or poor initial guess.")
+        if logger:
+            logger.warning("Curve fitting failed to converge. Not enough data points or poor initial guess.")
         return np.empty(0)  # Or handle error as needed
     except TypeError:  # Handle cases where curve_fit might receive empty arrays from p0 logic
-        print("TypeError: Invalid input types for curve fitting. Ensure betas and pfpr are numeric arrays.")
+        if logger:
+            logger.warning(
+                "TypeError: Invalid input types for curve fitting. Ensure betas and pfpr are numeric arrays."
+            )
         return np.empty(0)
 
 
+# ==== Beta map functions ====
 def get_beta_models(
     populations: list[int],
     access_rates: list[float],
-    means: pandas.DataFrame,
+    means: DataFrame,
     pfpr_cutoff: float = 0.0,
 ) -> dict[float, dict[int, list[float]]]:
     """
@@ -637,11 +681,11 @@ def get_beta(
         b = coefs[1]
         c = coefs[2]
     except KeyError as e:
-        print(f"KeyError: {e} for access rate {access_rate} and population {population}")
+        logging.error(f"KeyError: {e} for access rate {access_rate} and population {population}")
         return np.nan
     except ValueError as e:
-        print(f"ValueError: {e} for access rate {access_rate} and population {population}")
-        print(f"Received the following coefficients: {models_map[access_rate][population]}")
+        logging.error(f"ValueError: {e} for access rate {access_rate} and population {population}")
+        logging.error(f"Received the following coefficients: {models_map[access_rate][population]}")
         return 0.0
     # SMOOTH OUT THE BETA VALUE
     # b *= 1.25
@@ -683,17 +727,17 @@ def predicted_prevalence(models_map, population_raster, treatment, beta_map):
             try:
                 pfpr_map[r, c] = sigmoid(np.log(beta_map[r, c]), *coefs)
             except Exception as e:
-                print(f"Error occurred while calibrating PfPR at ({r}, {c}): {e}")
+                logging.error(f"Error occurred while calibrating PfPR at ({r}, {c}): {e}")
                 pfpr_map[r, c] = 0.0
     return pfpr_map
 
 
 def get_last_year_statistics(
-    ave_cases: pd.DataFrame,
-    ave_prevalence_2_to_10: pd.DataFrame,
-    ave_prevalence_under_5: pd.DataFrame,
-    ave_population: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ave_cases: DataFrame,
+    ave_prevalence_2_to_10: DataFrame,
+    ave_prevalence_under_5: DataFrame,
+    ave_population: DataFrame,
+) -> tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
     """
     Calculate the final year statistics for cases, prevalence, and population.
 
@@ -765,15 +809,315 @@ def get_last_year_statistics(
     return mean_cases, mean_prevalence_2_to_10, mean_prevalence_under_5, mean_population
 
 
-def calibrate(country_code: str) -> None:
+# ==== Main functionality ====
+def run_calibration_simulations(
+    country: CountryParams,
+    access_rates: list[float],
+    repetitions: int,
+    max_workers: Optional[int] = None,
+    logger: Optional[logging.Logger] = None,
+) -> None:
     """
-    Runs the full country-wide model calibration process. This method assumes the following pre-processing has been completed:
+    Runs the full country-wide model calibration process using multiprocessing.
+    This method assumes the following pre-processing has been completed:
     - Basic country-model data (ex: initial age structure, age distribution, death rate) and raster files have been assembled and placed under `data/<country_code>/`
     - Birth rate has been verified with a basic configuration file saved to `conf/<country_code>/test/<country_code>_params.yaml
     - `drug_db`, `therapy_db`, and `strategy_db` have been created and saved to `conf/<country_code>/test/strategy_db.yaml`
     - The implementation events have been created and saved to `conf/<country_code>/test/events.yaml`
     - Any seasonality effects are calculated and saved to `data/<country_code>/<country_code>_seasonality.csv`
 
+    Parameters
+    ----------
+    country_code : str
+        The country code for calibration
+    repetitions : int
+        Number of repetitions per parameter combination
+    max_workers : Optional[int], optional
+        Maximum number of worker processes. If None, uses os.cpu_count()
     """
-    params = yaml.load(open(os.path.join("conf", country_code, "test", f"{country_code}_params.yml"), "r"))
-    return None
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+    # country = CountryParams.load(name=country_code)
+    cmds = generate_calibration_commands(country, access_rates, repetitions)
+
+    logger.info(f"Generated {len(cmds)} simulation commands")
+
+    # Create output directory if it doesn't exist
+    output_dir = os.path.join("output", country.country_code, "calibration")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Execute commands using multiprocessing
+    if max_workers is None:
+        max_workers = get_optimal_worker_count()
+
+    logger.info(f"Starting calibration with {max_workers} worker processes...")
+
+    successful, failed_commands = multiprocess(cmds, max_workers, logger)
+
+    logger.info("\nCalibration completed:")
+    logger.info(f"  Successful runs: {successful}")
+    logger.info(f"  Failed runs: {len(failed_commands)}")
+
+    if failed_commands:
+        logger.info("Retrying failed commands.")
+        # Extract the command text
+        failed_commands = [cmd for (cmd, error) in failed_commands]
+        successful, failed_commands = multiprocess(failed_commands, max_workers, logger)
+
+    if failed_commands:
+        # Save failed commands to a file for debugging
+        failed_log_path = os.path.join("log", country.country_code, "calibration_failures.txt")
+        logger.info(f"There are {len(failed_commands)} failed commands. Writing these to a: {failed_log_path}")
+        os.makedirs(os.path.dirname(failed_log_path), exist_ok=True)
+
+        with open(failed_log_path, "w") as f:
+            f.write(f"Calibration failures for {country.country_code}\n")
+            f.write(f"Date: {date.today()}\n\n")
+            for cmd, error in failed_commands:
+                f.write(f"Command: {cmd}\n")
+                f.write(f"Error: {error}\n")
+                f.write("-" * 80 + "\n")
+
+        logger.info(f"Failed commands logged to: {failed_log_path}")
+
+
+def _summarize_calibration_results(
+    country_code: str,
+    access_rates: list[float],
+    comparison_start_month: int,
+    comparison_end_month: int,
+    output_dir: Path | str,
+    repetitions: int = 20,
+) -> DataFrame:
+    """
+    Summarize the results of MaSim calibration runs.
+
+    This function reads output files from multiple simulation runs,
+    aggregates relevant metrics (e.g., PfPR), and returns a summary DataFrame.
+
+    Parameters
+    ----------
+    country_code : str
+        The country code.
+    population_bins : list[int]
+        Population bins used in calibration.
+    access_rates : list[float]
+        Access rates used in calibration.
+    beta_values : list[float]
+        Beta values used in calibration.
+    comparison_year : int
+        The year used for comparison or validation of results.
+    output_dir : str
+        Directory containing the MaSim output files.
+    repetitions : int, optional
+        Number of repetitions run for each parameter set, by default 20.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame summarizing the calibration results.
+    """
+    base_file_path = os.path.join(output_dir, country_code, "calibration")
+    summary = DataFrame(
+        columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
+    )
+    # comparison = date(comparison_year, 1, 1)
+    # year_end = date(comparison_year + 1, 1, 1)
+    # Process summary
+    for pop in POPULATION_BINS:
+        for access in access_rates:
+            for beta in BETAS:
+                for i in range(1, repetitions + 1):
+                    filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
+                    file = os.path.join(base_file_path, f"{filename}.db")
+                    try:
+                        data = analysis.get_table(file, "monthlysitedata")
+                    except FileNotFoundError as _:
+                        filename = f"cal_{pop}_{access}_{int(beta)}_monthly_data_{i}"  # TODO: #15 fix the masim file output to ensure consistent int/float digits
+                        file = os.path.join(base_file_path, f"{filename}.db")
+                        try:
+                            data = analysis.get_table(file, "monthlysitedata")
+                        except FileNotFoundError as e:
+                            logging.warning(f"File not found: {e}")
+                            continue
+                    data = data.loc[
+                        data["monthlydataid"].between(comparison_start_month, comparison_end_month, inclusive="left")
+                    ]
+                    summary.loc[filename] = data[["pfprunder5", "pfpr2to10", "pfprall"]].mean()
+                    # mean_pop = data["population"].mean()
+                    # clinincal_episodes = data["clinicalepisodes"].sum()
+                    # pfpr = clinincal_episodes / mean_pop
+                    summary.loc[filename, "population"] = pop
+                    summary.loc[filename, "access_rate"] = access
+                    summary.loc[filename, "beta"] = beta
+                    summary.loc[filename, "iteration"] = int(i)
+                    # summary.loc[filename, "pfpr"] = pfpr
+
+    # summary.to_csv(f"{base_file_path}/calibration_summary.csv")
+    return summary
+
+
+def summarize_calibration_results(country: CountryParams, data_path: Path | str = Path("output")) -> DataFrame:
+    data_path = Path(data_path)
+    files = data_path.glob("*.db")
+
+    data = analysis.get_table(next(files), "monthlysitedata")
+    end_month = data["monthlydataid"].unique()[-13]
+    summary = DataFrame(
+        columns=["population", "access_rate", "beta", "iteration", "pfprunder5", "pfpr2to10", "pfprall"]
+    )
+    for file in files:
+        data = analysis.get_table(file, "monthlysitedata")
+        end_month = data["monthlydataid"].unique()[-13]
+        file_name = file.stem
+        parts = file_name.split("_")
+        pop = int(parts[1])
+        access = float(parts[2])
+        beta = float(parts[3])
+        iteration = int(parts[-1])
+        data = data.loc[data["monthlydataid"].between(end_month - 12, end_month, inclusive="left")]
+        summary.loc[file_name] = data[["pfprunder5", "pfpr2to10", "pfprall"]].mean()
+        summary.loc[file_name, "population"] = pop
+        summary.loc[file_name, "access_rate"] = access
+        summary.loc[file_name, "beta"] = beta
+        summary.loc[file_name, "iteration"] = int(iteration)
+
+    # for pop in POPULATION_BINS:
+    #     for access in access_rates:
+    #         for beta in BETAS:
+    #             for i in range(1, repetitions + 1):
+    #                 filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
+    #                 file = os.path.join(base_file_path, f"{filename}.db")
+    #                 try:
+    #                     data = analysis.get_table(file, "monthlysitedata")
+    #                 except FileNotFoundError as _:
+    #                     filename = f"cal_{pop}_{access}_{int(beta)}_monthly_data_{i}"  # TODO: #15 fix the masim file output to ensure consistent int/float digits
+    #                     file = os.path.join(base_file_path, f"{filename}.db")
+    #                     try:
+    #                         data = analysis.get_table(file, "monthlysitedata")
+    #                     except FileNotFoundError as e:
+    #                         logging.warning(f"File not found: {e}")
+    #                         continue
+    #                 data = data.loc[
+    #                     data["monthlydataid"].between(comparison_start_month, comparison_end_month, inclusive="left")
+    #                 ]
+    #                 summary.loc[filename] = data[["pfprunder5", "pfpr2to10", "pfprall"]].mean()
+    #                 # mean_pop = data["population"].mean()
+    #                 # clinincal_episodes = data["clinicalepisodes"].sum()
+    #                 # pfpr = clinincal_episodes / mean_pop
+    #                 summary.loc[filename, "population"] = pop
+    #                 summary.loc[filename, "access_rate"] = access
+    #                 summary.loc[filename, "beta"] = beta
+    #                 summary.loc[filename, "iteration"] = int(i)
+    #                 # summary.loc[filename, "pfpr"] = pfpr
+
+    summary["pfprunder5"] = summary["pfprunder5"].div(100)
+    summary["pfpr2to10"] = summary["pfpr2to10"].div(100)
+    summary["pfprall"] = summary["pfprall"].div(100)
+    summary = summary.drop(columns=["iteration"])
+    summary = summary.groupby(["population", "access_rate", "beta"]).mean().reset_index()
+    return summary
+    # summary.to_csv(f"{base_file_path}/calibration_means.csv", index=False)
+    # summary.head(25)
+
+
+def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path("output")) -> None:
+    """
+    Calibrate the MaSim model for a given country.
+    """
+    # Set up logger
+    logger = get_country_logger(country_code)
+    logger.info(f"Starting calibration for country: {country_code} with {repetitions} repetitions per parameter set.")
+    # Load country parameters
+    country = CountryParams.load(name=country_code)
+    treatment, _ = utils.read_raster(
+        os.path.join("data", country.country_code, f"{country.country_code}_treatmentseeking.asc")
+    )
+    treatment = np.unique(treatment)
+    treatment = treatment[~np.isnan(treatment)]
+    treatment = np.sort(treatment)
+    access_rates = [float(t) for t in treatment]  # Convert to float for consistency and to make pyright happy
+    logger.info(f"Access rates found in raster: {access_rates}")
+    # Run calibration simulations
+    logger.info("Running calibration simulations...")
+    run_calibration_simulations(country, access_rates, repetitions, logger=logger)
+    # Summarize calibration results
+    logger.info("Summarizing calibration results...")
+    means = summarize_calibration_results(country, Path("output") / country.country_code / "calibration")
+    means.to_csv(Path(output_dir) / country.country_code / "calibration" / "calibration_means.csv", index=False)
+    logger.info("Fitting log-sigmoid models to calibration data...")
+    models_map = get_beta_models(
+        populations=POPULATION_BINS,
+        access_rates=access_rates,
+        means=means,
+        pfpr_cutoff=0.0,
+    )
+    models_map_filename = "models_map.json"
+    with open(Path("data") / country.country_code / "calibration" / models_map_filename, "w") as f:  # noqa: F811, ruff disabled
+        json.dump(models_map, f, indent=4)
+    logger.info(f"Saved models map to {Path('data') / country.country_code / 'calibration' / models_map_filename}")
+    # Plot all the model data, fits, and inverse fits on the same figure
+    num_rows = len(POPULATION_BINS)
+    num_cols = len(access_rates)
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(4 * num_cols, 4 * num_rows), sharex=True, sharey=True)
+    for i, population in enumerate(POPULATION_BINS):
+        for j, treatment_access in enumerate(access_rates):
+            try:
+                ax = axes[i, j]  # Select subplot location
+            except IndexError:
+                ax = axes[i]
+            coefs = models_map[treatment_access][population]
+            group = means[(means["population"] == population) & (means["access_rate"] == treatment_access)]
+            betas = group["beta"].to_numpy()
+            pfpr = group["pfpr2to10"].to_numpy()
+
+            ax.plot(betas, pfpr, ".", label="Data", color="black")
+            X = np.linspace(1e-4, 10, 10000)
+            try:
+                Y = sigmoid(np.log10(X), *coefs)
+                ax.plot(X, Y, color="red", label="Fitted Curve")
+            except Exception as e:
+                print(f"Error fitting sigmoid for Population: {population}, Access: {treatment_access} - {e}")
+            ax.set_xscale("log")
+            ax.set_xlabel("Beta")
+            ax.set_ylabel("pfpr2to10")
+            ax.set_title(f"Population : {population}, Access : {treatment_access}")
+            ax.legend(fontsize=7)
+            ax.set_xlim(1e-3, 10)
+            ax.set_ylim(0, 1)
+    fig.suptitle("pfPr vs. Beta Data and Curve Fits by Population & Treatment Access", fontsize=24)
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
+    fig.savefig(Path("images") / country.country_code / f"{country.country_code}_log_sigmoid_fit.png")
+    logger.info(
+        f"Saved plot to {Path('images') / country.country_code / f'{country.country_code}_log_sigmoid_fit.png'}"
+    )
+    plt.close(fig)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Calibrate MaSim model for a given country.")
+    parser.add_argument("country_code", type=str, help="Country code for calibration (e.g., 'UGA').")
+    parser.add_argument(
+        "-r",
+        "--repetitions",
+        type=int,
+        default=20,
+        help="Number of repetitions per parameter combination (default: 20).",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_dir",
+        type=str,
+        default="output",
+        help="Directory to store output files (default: 'output').",
+    )
+    args = parser.parse_args()
+
+    calibrate(args.country_code, args.repetitions, args.output_dir)
+
+
+if __name__ == "__main__":
+    main()

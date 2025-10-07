@@ -5,6 +5,8 @@ This module provides functions for visualizing district, population, and prevale
 data from raster arrays, as well as reading and writing raster files in ASCII grid format.
 """
 
+from pathlib import Path
+
 import numpy
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -115,7 +117,7 @@ def plot_prevalence(
     return fig
 
 
-def read_raster(file: str) -> tuple[numpy.ndarray, dict]:
+def read_raster(file: Path | str) -> tuple[numpy.ndarray, dict]:
     """
     Read in a raster file and return the raster array and metadata.
 
@@ -129,7 +131,10 @@ def read_raster(file: str) -> tuple[numpy.ndarray, dict]:
     tuple
         A tuple containing the raster array (numpy.typing.NDArray) and metadata dictionary (dict).
     """
-    with open(file, "r") as f:
+    file_path = Path(file)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Raster file not found: {file}")
+    with open(file_path, "r") as f:
         data = f.read().splitlines()
     metadata = data[:6]
     data = data[6:]
@@ -143,7 +148,9 @@ def read_raster(file: str) -> tuple[numpy.ndarray, dict]:
     return raster, metadata
 
 
-def write_raster(raster: numpy.ndarray, file: str, xllcorner: float, yllcorner: float, cellsize: int = 5000) -> None:
+def write_raster(
+    raster: numpy.ndarray, file: Path | str, xllcorner: float, yllcorner: float, cellsize: int = 5000
+) -> None:
     """
     Write a raster array to a file.
 
@@ -160,6 +167,9 @@ def write_raster(raster: numpy.ndarray, file: str, xllcorner: float, yllcorner: 
     cellsize : int, optional
         The size of each cell in the raster, by default 5000.
     """
+    file_path = Path(file)
+    if not file_path.parent.exists():
+        raise FileNotFoundError(f"Directory does not exist: {file_path.parent}")
     nrows, ncols = raster.shape
     raster = numpy.where(numpy.isnan(raster), configure.NODATA_VALUE, raster)
     with open(file, "w") as f:

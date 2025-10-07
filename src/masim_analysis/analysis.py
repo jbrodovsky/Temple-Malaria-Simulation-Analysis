@@ -5,8 +5,6 @@ This module provides functions for interacting with MaSim simulation output
 databases, performing data analysis, and generating plots.
 """
 
-import glob
-import os
 from pathlib import Path
 import sqlite3
 
@@ -28,13 +26,13 @@ table_names = [
 
 
 # Database tools -----------------------------------------------------------------------------
-def get_all_tables(db: str) -> list:
+def get_all_tables(db: Path | str) -> list:
     """
     Get all tables in a sqlite3 database.
 
     Parameters
     ----------
-    db : str
+    db : str or Path
         Path to sqlite3 database.
 
     Returns
@@ -43,9 +41,10 @@ def get_all_tables(db: str) -> list:
         List of tables in the database.
     """
     # Validate input file path
-    if not os.path.exists(db):
+    db_path = Path(db)
+    if not db_path.exists():
         raise FileNotFoundError(f"File not found: {db}")
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(str(db_path)) as conn:
         c = conn.cursor()
         c.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = c.fetchall()
@@ -53,13 +52,13 @@ def get_all_tables(db: str) -> list:
     return [table[0] for table in tables]
 
 
-def get_table(db: str, table: str) -> pd.DataFrame:
+def get_table(db: Path | str, table: str) -> pd.DataFrame:
     """
     Get a table from a sqlite3 database.
 
     Parameters
     ----------
-    db : str
+    db : str or Path
         Path to sqlite3 database.
     table : str
         Name of table to get.
@@ -70,9 +69,10 @@ def get_table(db: str, table: str) -> pd.DataFrame:
         Table as a pandas DataFrame.
     """
     # Validate input file path
-    if not os.path.exists(db):
+    db_path = Path(db)
+    if not db_path.exists():
         raise FileNotFoundError(f"Database file not found: {db}")
-    with sqlite3.connect(db) as conn:
+    with sqlite3.connect(str(db_path)) as conn:
         df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
 
     return df
@@ -98,14 +98,14 @@ def calculate_treatment_failure_rate(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd.DataFrame:
+def aggregate_failure_rates(path: Path | str, strategy: str, locationid: int = 0) -> pd.DataFrame:
     """
     Aggregate failure rate data by strategy. This function searches path for all the result
     files for the given strategy and aggregates them.
 
     Parameters
     ----------
-    path : str
+    path : str or Path
         Path to search for result files.
     strategy : str
         Strategy to aggregate data for.
@@ -118,7 +118,7 @@ def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd
         Aggregated data.
     """
     # Get all files for the strategy
-    files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
+    files = list(Path(path).glob(f"{strategy}_*.db"))
     if len(files) == 0:
         raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
@@ -131,7 +131,7 @@ def aggregate_failure_rates(path: str, strategy: str, locationid: int = 0) -> pd
                 monthlysitedata = monthlysitedata[monthlysitedata["locationid"] == locationid]
             monthlysitedata = calculate_treatment_failure_rate(monthlysitedata)
             # Use the filename (without extension and path) as the column name for this run's failure rate
-            col_name = os.path.splitext(os.path.basename(file))[0]
+            col_name = file.stem
             summary[col_name] = monthlysitedata.groupby("monthlydataid")["failure_rate"].sum()
         except Exception as e:
             print(f"Error processing file {file}: {e}")
@@ -148,7 +148,7 @@ def save_aggregated_data(
     monthlysitedata: dict[str, pd.DataFrame],
     monthlydataid: pd.Series,
     strategy: str,
-    path: str,
+    path: Path | str,
 ):
     """
     Save aggregated data to a file.
@@ -161,10 +161,11 @@ def save_aggregated_data(
         monthlydataid column.
     strategy : str
         Strategy name.
-    path : str
+    path : str or Path
         Path to save the file.
     """
-    with sqlite3.connect(os.path.join(path, f"{strategy}_aggregated.db")) as conn:
+    db_path = Path(path) / f"{strategy}_aggregated.db"
+    with sqlite3.connect(str(db_path)) as conn:
         for key, df in monthlysitedata.items():
             df_to_save = df.copy()
             if "monthlydataid" not in df_to_save.columns and monthlydataid is not None:
@@ -209,13 +210,13 @@ def plot_strategy_treatment_failure(data: pd.DataFrame, strategy: str, figsize: 
     return fig, ax
 
 
-def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
+def get_population_data(file: Path | str, month: int = -1) -> pd.DataFrame:
     """
     Get population data from a MaSim output database.
 
     Parameters
     ----------
-    file : str
+    file : str or Path
         Path to the MaSim output database (.db file).
     month : int, optional
         Month to get data for. Defaults to -1 (all months).
@@ -226,7 +227,8 @@ def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
         DataFrame containing population data.
     """
     # Assert the file exists
-    if not os.path.exists(file):
+    file_path = Path(file)
+    if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file}")
     population_data = get_table(file, "monthlysitedata")
     if month > 0:
@@ -239,13 +241,13 @@ def get_population_data(file: str, month: int = -1) -> pd.DataFrame:
     return population_data
 
 
-def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
+def get_genome_data(file: Path | str, month: int = -1) -> pd.DataFrame:
     """
     Get genome data from a MaSim output database.
 
     Parameters
     ----------
-    file : str
+    file : str or Path
         Path to the MaSim output database (.db file).
     month : int, optional
         Month to get data for. Defaults to -1 (all months).
@@ -256,7 +258,8 @@ def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
         DataFrame containing genome data.
     """
     # Assert the file exists
-    if not os.path.exists(file):
+    file_path = Path(file)
+    if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file}")
     genome_data = get_table(file, "monthlygenomedata")
     if len(genome_data) == 0:
@@ -272,13 +275,13 @@ def get_genome_data(file: str, month: int = -1) -> pd.DataFrame:
     return genome_data
 
 
-def calculate_genome_frequencies(file: str, month: int = -1) -> pd.DataFrame:
+def calculate_genome_frequencies(file: Path | str, month: int = -1) -> pd.DataFrame:
     """
     Calculate genome frequencies from a MaSim output database.
 
     Parameters
     ----------
-    file : str
+    file : str or Path
         Path to the MaSim output database (.db file).
     month : int, optional
         Month to get data for. Defaults to -1 (all months).
@@ -289,7 +292,8 @@ def calculate_genome_frequencies(file: str, month: int = -1) -> pd.DataFrame:
         DataFrame containing genome frequencies.
     """
     # Assert the file exists
-    if not os.path.exists(file):
+    file_path = Path(file)
+    if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file}")
     # Get the genomes
     genomes = get_table(file, "genotype")
@@ -330,14 +334,14 @@ def get_resistant_genotypes(genomes: pd.DataFrame, allele: str) -> pd.DataFrame:
 
 
 def calculate_resistant_genome_frequencies(
-    file: str, allele: str, month: int = 0, locationid: int = -1
+    file: Path | str, allele: str, month: int = 0, locationid: int = -1
 ) -> pd.DataFrame:
     """
     Calculate resistant genome frequencies from a MaSim output database.
 
     Parameters
     ----------
-    file : str
+    file : str or Path
         Path to the MaSim output database (.db file).
     allele : str
         Allele to consider for resistance.
@@ -352,7 +356,8 @@ def calculate_resistant_genome_frequencies(
         DataFrame containing resistant genome frequencies.
     """
     # Assert the file exists
-    if not os.path.exists(file):
+    file_path = Path(file)
+    if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file}")
     genomes = get_table(file, "genotype")
     resistant_genotypes = genomes.loc[genomes["name"].str.contains(allele)]
@@ -387,14 +392,14 @@ def calculate_resistant_genome_frequencies(
 
 
 def aggregate_resistant_genome_frequencies(
-    path: str, strategy: str, allele: str = "H", month: int = -1, locationid: int = -1
+    path: Path | str, strategy: str, allele: str = "H", month: int = -1, locationid: int = -1
 ) -> list:
     """
     Aggregate resistant genome frequencies across multiple simulation runs for a strategy.
 
     Parameters
     ----------
-    path : str
+    path : str or Path
         Path to search for result files.
     strategy : str
         Strategy to aggregate data for.
@@ -411,7 +416,7 @@ def aggregate_resistant_genome_frequencies(
         List of DataFrames, each containing resistant genome frequencies for a run.
     """
     # Get all files for the strategy
-    files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
+    files = list(Path(path).glob(f"{strategy}_*.db"))
     if len(files) == 0:
         raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
@@ -447,14 +452,14 @@ def aggregate_resistant_genome_frequencies(
 
 
 def aggregate_resistant_genome_frequencies_by_month(
-    path: str, strategy: str, allele: str = "H", locationid: int = -1
+    path: Path | str, strategy: str, allele: str = "H", locationid: int = -1
 ) -> pd.DataFrame:
     """
     Aggregate resistant genome frequencies by month across multiple simulation runs.
 
     Parameters
     ----------
-    path : str
+    path : str or Path
         Path to search for result files.
     strategy : str
         Strategy to aggregate data for.
@@ -468,7 +473,7 @@ def aggregate_resistant_genome_frequencies_by_month(
     pd.DataFrame
         DataFrame containing aggregated resistant genome frequencies by month.
     """
-    files = glob.glob(os.path.join(f"{path}", f"{strategy}_*.db"))
+    files = list(Path(path).glob(f"{strategy}_*.db"))
     if len(files) == 0:
         raise FileNotFoundError(f"No files found for strategy {strategy} in {path}")
     else:
@@ -489,13 +494,13 @@ def aggregate_resistant_genome_frequencies_by_month(
     return genome_frequencies
 
 
-def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figure:
+def plot_strategy_results(path: Path | str, strategy: str, locationid: int = 0) -> Figure:
     """
     Plot aggregated results for a given strategy.
 
     Parameters
     ----------
-    path : str
+    path : str or Path
         Path to search for result files.
     strategy : str
         Strategy to plot results for.
@@ -510,10 +515,11 @@ def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figu
     # Assert that the location is valid
     if locationid < 0:
         raise ValueError("locationid must be a positive integer")
-    if not os.path.exists(path):
+    path_obj = Path(path)
+    if not path_obj.exists():
         raise FileNotFoundError(f"File not found: {path}")
     # Get all results files in the path
-    results_files = glob.glob(os.path.join(path, f"{strategy}_.db"))
+    results_files = list(path_obj.glob(f"{strategy}_.db"))
     if len(results_files) == 0:
         raise FileNotFoundError(f"No results files found for strategy {strategy}")
     # Read all results files
@@ -542,13 +548,13 @@ def plot_strategy_results(path: str, strategy: str, locationid: int = 0) -> Figu
     return fig
 
 
-def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: str = "H", locationid: int = -1):
+def plot_combined_strategy_aggragated_results(path: Path | str, strategy: str, allele: str = "H", locationid: int = -1):
     """
     Plot combined aggregated results for a strategy, including treatment failure and resistant genome frequencies.
 
     Parameters
     ----------
-    path : str
+    path : str or Path
         Path to search for result files.
     strategy : str
         Strategy to plot results for.
@@ -560,10 +566,11 @@ def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: 
     # Assert that the location is valid
     if locationid < 0:
         raise ValueError("locationid must be a positive integer")
-    if not os.path.exists(path):
+    path_obj = Path(path)
+    if not path_obj.exists():
         raise FileNotFoundError(f"File not found: {path}")
     # Get all results files in the path
-    results_files = glob.glob(os.path.join(path, f"{strategy}_*.db"))
+    results_files = list(path_obj.glob(f"{strategy}_*.db"))
     if len(results_files) == 0:
         raise FileNotFoundError(f"No results files found for strategy {strategy}")
     agg = aggregate_resistant_genome_frequencies_by_month(path, strategy, allele, locationid)
@@ -612,7 +619,7 @@ def plot_combined_strategy_aggragated_results(path: str, strategy: str, allele: 
 
 
 def get_average_summary_statistics(
-    path: str | Path, country: CountryParams
+    path: Path | str, country: CountryParams
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Get average summary statistics across all .db files in a given directory.
@@ -621,16 +628,18 @@ def get_average_summary_statistics(
     ----------
     path : str or Path
         Path to the directory containing .db files.
+    country : CountryParams
+        Country parameters object.
 
     Returns
     -------
     tuple
-        A tuple containing DataFrames for average population, total clinical episodes, .
+        A tuple containing DataFrames for average population, total clinical episodes, etc.
     """
-    path = Path(path)
-    if not path.exists() or not path.is_dir():
+    path_obj = Path(path)
+    if not path_obj.exists() or not path_obj.is_dir():
         raise NotADirectoryError(f"Path {path} is not a valid directory.")
-    db_files = list(path.glob("*.db"))
+    db_files = list(path_obj.glob("*.db"))
     if len(db_files) == 0:
         raise FileNotFoundError(f"No .db files found in directory {path}.")
 
@@ -643,9 +652,10 @@ def get_average_summary_statistics(
 
     for rep in range(20):
         data = get_table(
-            os.path.join(
-                "output", country.country_code, "validation", f"{country.country_code}_validation_monthly_data_{rep}.db"
-            ),
+            Path("output")
+            / country.country_code
+            / "validation"
+            / f"{country.country_code}_validation_monthly_data_{rep}.db",
             "monthlysitedata",
         )
         cases_2_to_10 = data[
@@ -800,12 +810,3 @@ def plot_prevalence_trend(
     ax.set_xticks(np.arange(0, 0.6, 0.1))
     ax.legend()
     return fig
-
-
-def main():
-    """
-    Main function for analysis script (if run as standalone).
-    Placeholder for potential command-line interface or primary execution logic.
-    """
-    print("MASIM ANALYSIS MODULE")
-    # TODO: Add main function that standardizes the output

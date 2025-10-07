@@ -44,7 +44,7 @@ initial_age_structure:
 - 69
 - 100
 artificial_rescaling_of_population_size: 1.0
-birth_rate: 0.04414
+birth_rate: 0.077
 death_rate_by_age_class:
 - 0.04814
 - 0.041605
@@ -145,7 +145,7 @@ spatial_model:
     beta: 0
     gamma: 0
 seasonal_info:
-  enable: false
+  enable: true
   mode: rainfall
   rainfall:
     filename: data/ago/ago_seasonality.csv
@@ -690,60 +690,48 @@ strategy_db:
   0:
     name: 2006_pub
     type: MFT
-    therapy_ids:
+    therapy_ids: &id001
     - 7
-    - 2
-    - 3
-    - 1
+    - 8
+    - 6
+    - 4
+    - 0
     - 0
     distribution:
-    - 0.028
-    - 0.003
+    - 0.027999999999999997
+    - 0.0029999999999999988
     - 0.14
     - 0.107
+    - 0.008
     - 0.016
   1:
     name: 2007_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 2
-    - 3
-    - 1
-    - 0
+    therapy_ids: *id001
     distribution:
-    - 0.028
-    - 0.003
+    - 0.027999999999999997
+    - 0.0029999999999999988
     - 0.14
     - 0.107
+    - 0.008
     - 0.016
   2:
     name: 2011_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 2
-    - 3
-    - 1
-    - 0
+    therapy_ids: *id001
     distribution:
-    - 0.027
-    - 0.009
+    - 0.027000000000000003
+    - 0.009000000000000001
     - 0.025
     - 0.0
-    - 0.022
+    - 0.022000000000000002
     - 0.217
   3:
     name: 2015_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 2
-    - 3
-    - 1
-    - 0
+    therapy_ids: *id001
     distribution:
-    - 0.093
+    - 0.09300000000000001
     - 0.083
     - 0.02
     - 0.07
@@ -752,14 +740,9 @@ strategy_db:
   4:
     name: 2016_pub
     type: MFT
-    therapy_ids:
-    - 7
-    - 2
-    - 3
-    - 1
-    - 0
+    therapy_ids: *id001
     distribution:
-    - 0.093
+    - 0.09300000000000001
     - 0.083
     - 0.02
     - 0.07
@@ -771,21 +754,21 @@ events:
   - day: 2011/01/01
 - name: 2006_strategy
   info:
-  - day: 2011-01-01
+  - day: 2006/01/01
     strategy_id: 0
 - name: 2007_strategy
   info:
-  - day: 2015/01/01
+  - day: 2007/01/01
     strategy_id: 1
 - name: 2011_strategy
   info:
-  - day: 2018/01/01
+  - day: 2011/01/01
     strategy_id: 2
 - name: 2015_strategy
   info:
-  - day: 2022/01/01
+  - day: 2015/01/01
     strategy_id: 3
 - name: 2016_strategy
   info:
-  - day: 2023/01/01
+  - day: 2016/01/01
     strategy_id: 4
