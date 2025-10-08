@@ -2,7 +2,7 @@
 #PBS -l walltime=48:00:00
 #PBS -N SubmitJobs
 #PBS -q nd
-#PBS -l select=1:ncpus=20:host=BrodovskyLaptop
+#PBS -l select=1:ncpus=20:host=nd02
 #PBS -o ../log/submit_jobs.output
 #PBS -e ../log/submit_jobs.error
 
