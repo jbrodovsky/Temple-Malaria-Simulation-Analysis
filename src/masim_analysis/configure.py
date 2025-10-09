@@ -978,4 +978,4 @@ def setup_directories(country_code: str) -> None:
     os.makedirs(f"./images/{country_code}", exist_ok=True)
     os.makedirs(f"./log/{country_code}", exist_ok=True)
     os.makedirs(f"./output/{country_code}", exist_ok=True)
-    os.makedirs(f"./scripts/{country_code}", exist_ok=True)
+    #os.makedirs(f"./scripts/{country_code}", exist_ok=True)

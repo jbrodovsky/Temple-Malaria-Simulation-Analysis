@@ -8,32 +8,22 @@ This module includes functions to:
 """
 
 import argparse
+from asyncio import wait_for
 import os
+from enum import Enum
 from math import ceil, floor
 from pathlib import Path
 from typing import Optional
 
+from numpy.f2py.symbolic import Op
 
-# @dataclass
-# def cluster:
-#     name: str
-#     node_memory: int  # GB
-#     node_cores: int  # Cores
-#     job_memory: int  # GB
-#     time_per_job: int  # Hour
-#     max_wall_time: int  # Hour
-#
-#     @property
-#     def max_cores_per_node(self) -> int:
-#         return floor(self.node_memory / self.job_memory) - 1
 
-NODE_MEMORY = 128  # GB
-NODE_CORES = 28  # Cores
-JOB_MEMORY = 8  # GB
-MAX_CORES_PER_NODE = floor(NODE_MEMORY / JOB_MEMORY) - 1  # Cores
-TIME_PER_JOB = 5  # Hour
-MAX_WALL_TIME = 48  # Hour
-JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
+class Cluster(Enum):
+    ONE = "nd01"
+    TWO = "nd02"
+    THREE = "nd03"
+    FOUR = "nd04"
+
 
 # Multiprocessing notes:
 # - We can specify the number of repetitions for each strategy using the -j flag
@@ -139,24 +129,37 @@ def batch_generate_commands(
 
 def generate_job_file(
     commands_filename: str,
-    job_name: str = "MyJob",
+    node: Cluster = Cluster.ONE,
+    job_name: Path | str = Path("MyJob"),
     cores_override: Optional[int] = None,
-    nodes_override: Optional[int] = None,
+    time_override: Optional[int] = 48,
+    std_output_location: Optional[Path | str] = Path("."),
+    std_error_location: Optional[Path | str] = Path("."),
     email: Optional[str] = None,
 ) -> None:
     """
-    Generate a job file for submitting MaSim commands to a cluster.
+    Generate a generic job file for submitting a list of commands to
+    execute on the cluster in parallel.
 
     Parameters
     ----------
     commands_filename : str
-        The name of the file containing the MaSim commands.
+        The file path and name of the file containing the shell commands to execute.
+    node : Cluster, optional
+        The cluster node to use, by default Cluster.ONE (nd01).
     job_name : str, optional
         The name of the job, by default "MyJob".
     cores_override : Optional[int], optional
-        Override the number of cores per node, by default None.
-    nodes_override : Optional[int], optional
-        Override the number of nodes, by default None.
+        Override the number of cores per node, by default None which
+        the usage to maximum.
+    time_override : Optional[int], optional
+        Override the wall time in hours, by default 48.
+    std_output_location : Optional[Path | str], optional
+        Standard output file location, by default None, which sets the
+        output location to '.' and thus writes to ./<job_name>.output.
+    std_error_location : Optional[Path | str], optional
+        Standard error file location, by default None, which sets the
+        error location to '.' and thus writes to ./<job_name>.error.
     email : Optional[str], optional
         Email address for job notifications, by default None.
     """
@@ -164,89 +167,56 @@ def generate_job_file(
     with open(commands_filename, "r") as f:
         num_commands = sum(1 for _ in f)
     # Generate the job file
-    job_filename = f"{job_name}.sh"
+    job_filename = f"{job_name}.pbs"
     if os.path.exists(job_filename):
         os.remove(job_filename)
 
-    # Read the length of the commands file
-    if (cores_override is not None and cores_override > 0 and cores_override <= 28) and (
-        nodes_override is not None and nodes_override > 0 and nodes_override <= 10
-    ):
-        # needed_nodes = ceil(num_commands / cores_override)
+    # Normalize available CPU count to a non-None int
+    available_cpus = os.cpu_count() or 1
+
+    if cores_override is None:
+        cores_requested = available_cpus
+    elif cores_override is not None and cores_override <= available_cpus:
         cores_requested = cores_override
-        needed_nodes = nodes_override
     else:
-        needed_nodes = ceil(num_commands / JOBS_PER_NODE)
-        cores_requested = MAX_CORES_PER_NODE
+        cores_requested = available_cpus
+
+    wait_for_available_slot = (
+        "function wait_for_available_slot() {\n"
+        f"while (( $(jobs -r | wc -l) >= {cores_requested} )); do\n"
+        "    sleep 0.5 \n"  # <<< check every 0.5s if a slot is free
+        "done\n"
+        "}\n"
+    )
+    command_loop = (
+        'while IFS= read -r line || [[ -n "$line" ]]; do\n'
+        '    if [[ -n "$line" ]]; then\n'
+        "        wait_for_available_slot\n"  # <<< wait if too many jobs
+        '        echo "Running: $line" \n'
+        f'        eval "$line" > {std_output_location}/{job_name}_${{INDEX}}.output 2> {std_error_location}/{job_name}_${{INDEX}}.error & \n'
+        "        ((INDEX++))\n"
+        "    fi\n"
+        f"done < {commands_filename}\n"
+    )
 
     with open(job_filename, "w") as f:
-        f.write("#!/bin/sh\n")
-        f.write("#PBS -l walltime=48:00:00\n")
+        f.write("#!/bin/bash\n")
+        f.write(f"#PBS -l walltime={time_override}:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
-        f.write("#PBS -q normal\n")
+        f.write("#PBS -q nd\n")
+        f.write(f"#PBS -l select=1:ncpus={cores_requested}:host={node.value}\n")
+        f.write(f"#PBS -o {std_output_location}/{job_name}.output\n")
+        f.write(f"#PBS -e {std_error_location}/{job_name}.error\n")
         if email:
             f.write("#PBS -m bae\n")
             f.write(f"#PBS -M {email}\n")
-        f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
+        f.write("\n")
         f.write("cd $PBS_O_WORKDIR\n")
-        f.write(f"torque-launch {commands_filename}\n")
+        f.write(wait_for_available_slot)
+        f.write("\n")
+        f.write(command_loop)
+        f.write("\n")
     # Display the commands file
-    # print(f"Commands file: {commands_filename}")
-    # print(f"Job script: {job_filename}")
-    # run_command = f"qsub {job_filename}"
-    # print(f"To submit the job, run: {run_command}")
-
-
-def main() -> None:
-    """
-    Main function to handle command-line arguments for generating MaSim commands and job files.
-    """
-    parser = argparse.ArgumentParser(description="Generate commands for MaSim")
-    parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        required=True,
-        help="The input configuration file path, ex: ./conf/rwa/AL5.yml or /conf/rwa. If it is a directory, it will batch generate commands for all the files in the directory.",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        required=True,
-        help="The output directory to store simulation results, ex: ./output/rwa",
-    )
-    parser.add_argument(
-        "-r",
-        "--repetitions",
-        type=int,
-        default=1,
-        help="The number of repetitions to run for each strategy specified by the input configuration file",
-    )
-    parser.add_argument(
-        "-n",
-        "--name",
-        type=str,
-        default="MyJob",
-        help="The name of the job to submit to the cluster (default: MyJob)",
-    )
-
-    args = parser.parse_args()
-    # generate_commands(args.input, args.output, args.repetitions)
-    input_path = Path(args.input)
-    output_path = Path(args.output)
-
-    if input_path.is_dir():
-        commands = batch_generate_commands(input_path, output_path, args.repetitions)
-        filename = "batch_commands.txt"
-    else:
-        filename, commands = generate_commands(input_path, output_path, args.repetitions)
-
-    with open(filename, "w") as f:
-        for command in commands:
-            f.write(command)
-    generate_job_file(filename, args.name)
-
-
-if __name__ == "__main__":
-    main()
+    print(f"Job file generate for {commands_filename} and saved to: {job_filename}")
+    run_command = f"qsub {job_filename}"
+    print(f"To submit the job, run: {run_command}")

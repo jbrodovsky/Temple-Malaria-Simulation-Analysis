@@ -70,7 +70,7 @@ def get_country_logger(country_code: str) -> logging.Logger:
 
 
 # ==== Generic multiprocessing utilities ====
-def get_optimal_worker_count() -> int:
+def get_optimal_worker_count(utilization: float = 0.75) -> int:
     """
     Determine optimal number of worker processes based on system resources.
 
@@ -82,7 +82,7 @@ def get_optimal_worker_count() -> int:
     cpu_count = os.cpu_count() or 1
     # Use 75% of available CPUs, with a minimum of 1 and maximum of 16
     # This leaves some headroom for the system and prevents oversubscription
-    optimal_workers = max(1, min(16, int(cpu_count * 0.75)))
+    optimal_workers = max(1, int(cpu_count * utilization))
     return optimal_workers
 
 
@@ -851,7 +851,7 @@ def run_calibration_simulations(
 
     # Execute commands using multiprocessing
     if max_workers is None:
-        max_workers = get_optimal_worker_count()
+        max_workers = get_optimal_worker_count(utilization=0.75)
 
     logger.info(f"Starting calibration with {max_workers} worker processes...")
 
