@@ -1,0 +1,26 @@
+#!/bin/bash
+#PBS -l walltime=168:00:00
+#PBS -N Moz37
+#PBS -q nd
+#PBS -l select=1:ncpus=12:host=nd01
+#PBS -o ./Moz37.output
+#PBS -e ./Moz37.error
+#PBS -m bae
+#PBS -M jbrodovsky@temple.edu
+
+cd $PBS_O_WORKDIR
+function wait_for_available_slot() {
+while (( $(jobs -r | wc -l) >= 12 )); do
+    sleep 0.5 
+done
+}
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ -n "$line" ]]; then
+        wait_for_available_slot
+        echo "Running: $line" 
+        eval "$line" > ./Moz37_${INDEX}.output 2> ./Moz37_${INDEX}.error & 
+        ((INDEX++))
+    fi
+done < moz_37.txt
+
