@@ -30,7 +30,7 @@ from ruamel.yaml.emitter import EmitterError
 from scipy.optimize import curve_fit
 
 from masim_analysis import analysis, commands, configure, utils
-from masim_analysis.configure import CountryParams
+from masim_analysis.configure import CountryParams, setup_directories
 
 
 yaml = YAML()
@@ -1028,6 +1028,8 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
     """
     Calibrate the MaSim model for a given country.
     """
+    # Back up run to ensure output and log directories exist
+    setup_directories(country_code)
     # Set up logger
     logger = get_country_logger(country_code)
     logger.info(f"Starting calibration for country: {country_code} with {repetitions} repetitions per parameter set.")

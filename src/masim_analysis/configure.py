@@ -968,6 +968,12 @@ def configure(
 def setup_directories(country_code: str) -> None:
     """
     Set up a new country model for the simulation and the accompanying folder structure.
+    Creates the following directories if they do not already exist:
+    - conf/{country_code}
+    - data/{country_code}
+    - images/{country_code}
+    - log/{country_code}
+    - output/{country_code}
 
     # Arguments
     - country_code: str
@@ -978,4 +984,4 @@ def setup_directories(country_code: str) -> None:
     os.makedirs(f"./images/{country_code}", exist_ok=True)
     os.makedirs(f"./log/{country_code}", exist_ok=True)
     os.makedirs(f"./output/{country_code}", exist_ok=True)
-    #os.makedirs(f"./scripts/{country_code}", exist_ok=True)
+    # os.makedirs(f"./scripts/{country_code}", exist_ok=True)
