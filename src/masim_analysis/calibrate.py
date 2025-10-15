@@ -1030,9 +1030,11 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
     """
     # Back up run to ensure output and log directories exist
     setup_directories(country_code)
+
     # Set up logger
     logger = get_country_logger(country_code)
     logger.info(f"Starting calibration for country: {country_code} with {repetitions} repetitions per parameter set.")
+
     # Load country parameters
     country = CountryParams.load(name=country_code)
     treatment, _ = utils.read_raster(
@@ -1043,9 +1045,11 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
     treatment = np.sort(treatment)
     access_rates = [float(t) for t in treatment]  # Convert to float for consistency and to make pyright happy
     logger.info(f"Access rates found in raster: {access_rates}")
+
     # Run calibration simulations
     logger.info("Running calibration simulations...")
     run_calibration_simulations(country, access_rates, repetitions, logger=logger)
+
     # Summarize calibration results
     logger.info("Summarizing calibration results...")
     means = summarize_calibration_results(country, Path("output") / country.country_code / "calibration")
@@ -1057,10 +1061,13 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
         means=means,
         pfpr_cutoff=0.0,
     )
+
+    # Save the models map to a json file
     models_map_filename = "models_map.json"
     with open(Path("data") / country.country_code / "calibration" / models_map_filename, "w") as f:  # noqa: F811, ruff disabled
         json.dump(models_map, f, indent=4)
     logger.info(f"Saved models map to {Path('data') / country.country_code / 'calibration' / models_map_filename}")
+
     # Plot all the model data, fits, and inverse fits on the same figure
     num_rows = len(POPULATION_BINS)
     num_cols = len(access_rates)
