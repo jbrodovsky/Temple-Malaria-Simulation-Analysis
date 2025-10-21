@@ -619,7 +619,7 @@ def plot_combined_strategy_aggragated_results(path: Path | str, strategy: str, a
 
 
 def get_average_summary_statistics(
-    path: Path | str, country: CountryParams
+    path: Path | str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Get average summary statistics across all .db files in a given directory.
@@ -628,8 +628,6 @@ def get_average_summary_statistics(
     ----------
     path : str or Path
         Path to the directory containing .db files.
-    country : CountryParams
-        Country parameters object.
 
     Returns
     -------
@@ -650,14 +648,9 @@ def get_average_summary_statistics(
     ave_prevalence_under_5 = pd.DataFrame(columns=["monthlydataid", "locationid", "pfprunder5"])
     ave_cases_under_5 = pd.DataFrame(columns=["monthlydataid", "locationid", "casesunder5"])
 
-    for rep in range(20):
-        data = get_table(
-            Path("output")
-            / country.country_code
-            / "validation"
-            / f"{country.country_code}_validation_monthly_data_{rep}.db",
-            "monthlysitedata",
-        )
+    rep = 0
+    for file in path_obj.glob("*.db"):
+        data = get_table(file, "monthlysitedata")
         cases_2_to_10 = data[
             [
                 "monthlydataid",
@@ -744,6 +737,7 @@ def get_average_summary_statistics(
             )
         except Exception as e:
             print(f"Error processing replication {rep}: {e}")
+        rep += 1
     return (
         ave_population,
         ave_cases,

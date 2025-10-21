@@ -10,9 +10,7 @@ to calibration data.
 import argparse
 import json
 import os
-import subprocess
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -30,7 +28,8 @@ from ruamel.yaml.emitter import EmitterError
 from scipy.optimize import curve_fit
 
 from masim_analysis import analysis, commands, configure, utils
-from masim_analysis.configure import CountryParams, setup_directories
+from masim_analysis.configure import CountryParams
+from masim_analysis.commands import setup_directories
 
 
 yaml = YAML()
@@ -38,129 +37,6 @@ yaml = YAML()
 # Calibration constants
 BETAS = [0.001, 0.005, 0.01, 0.0125, 0.015, 0.02, 0.03, 0.04, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1]
 POPULATION_BINS = [10, 20, 30, 40, 50, 75, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 20000]
-
-
-# ==== Logger setup ====
-def get_country_logger(country_code: str) -> logging.Logger:
-    """
-    Returns a logger that writes to log/<country_code>/calibration.log.
-    """
-    log_dir = Path("log") / country_code
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "calibration.log"
-
-    logger = logging.getLogger(f"calibration.{country_code}")
-    logger.setLevel(logging.INFO)
-
-    # Avoid adding multiple handlers if logger is reused
-    if not logger.handlers:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-        )
-        logger.addHandler(file_handler)
-        # Optional: also log to console
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-        )
-        logger.addHandler(stream_handler)
-
-    return logger
-
-
-# ==== Generic multiprocessing utilities ====
-def get_optimal_worker_count(utilization: float = 0.75) -> int:
-    """
-    Determine optimal number of worker processes based on system resources.
-
-    Returns
-    -------
-    int
-        Recommended number of worker processes
-    """
-    cpu_count = os.cpu_count() or 1
-    # Use 75% of available CPUs, with a minimum of 1 and maximum of 16
-    # This leaves some headroom for the system and prevents oversubscription
-    optimal_workers = max(1, int(cpu_count * utilization))
-    return optimal_workers
-
-
-def run_simulation_command(cmd: str) -> tuple[str, bool, str]:
-    """
-    Execute a single MaSim simulation command.
-
-    Parameters
-    ----------
-    cmd : str
-        The command string to execute
-
-    Returns
-    -------
-    tuple[str, bool, str]
-        A tuple containing (command, success_flag, error_message)
-    """
-    try:
-        # Remove trailing newline if present
-        cmd = cmd.strip()
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=3600,  # 1 hour timeout per simulation
-        )
-
-        if result.returncode == 0:
-            return (cmd, True, "")
-        else:
-            return (cmd, False, result.stderr)
-
-    except subprocess.TimeoutExpired:
-        return (cmd, False, "Command timed out after 1 hour")
-    except Exception as e:
-        return (cmd, False, f"Unexpected error: {str(e)}")
-
-
-def multiprocess(cmds: list[str], max_workers: int, logger: logging.Logger) -> tuple[int, list[tuple[str, str]]]:
-    """
-    Generic multiprocessing wrapper for a list of shell commands.
-    """
-    successful_runs = 0
-    failed_runs = 0
-    failed_commands = []
-
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all jobs
-        future_to_cmd = {executor.submit(run_simulation_command, cmd): cmd for cmd in cmds}
-
-        # Process completed jobs with progress bar
-        for future in as_completed(future_to_cmd):
-            try:
-                cmd, success, error_msg = future.result()
-                if success:
-                    logger.info(f"Successfully executed command: {cmd}")
-                    successful_runs += 1
-                else:
-                    failed_runs += 1
-                    failed_commands.append((cmd, error_msg))
-                    # Only log first few failures to avoid spam
-                    if failed_runs <= 5:
-                        logger.error(f"Failed command: {cmd}")
-                        logger.error(f"Error: {error_msg}")
-                    elif failed_runs == 6:
-                        logger.error("Additional failures will be logged to file...")
-
-            except Exception as e:
-                failed_runs += 1
-                cmd = future_to_cmd[future]
-                error_msg = f"Future execution error: {str(e)}"
-                failed_commands.append((cmd, error_msg))
-                if failed_runs <= 5:
-                    logger.error(f"Failed command: {cmd}")
-                    logger.error(f"Error: {error_msg}")
-
-    return successful_runs, failed_commands
 
 
 # ==== Configuration generation ====
@@ -290,12 +166,12 @@ def generate_calibration_commands(
     return cmds
 
 
-def process_missing_jobs(
+def check_missing_runs(
     country_code: str,
     access_rates: list[float],
-    output_dir: str,
+    output_dir: Path | str,
     repetitions: int = 20,
-):
+) -> list[str]:
     """
     Identify and potentially re-process missing jobs from a calibration run.
 
@@ -318,6 +194,7 @@ def process_missing_jobs(
         Number of repetitions expected for each parameter set, by default 20.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
+    missing_cmds: list[str] = []
     for pop in POPULATION_BINS:
         for access in access_rates:
             for beta in BETAS:
@@ -330,21 +207,25 @@ def process_missing_jobs(
                         _months = analysis.get_table(file, "monthlydata")
                         _monthlysitedata = analysis.get_table(file, "monthlysitedata")
                     except FileNotFoundError:
-                        with open(f"missing_calibration_runs_{pop}.txt", "a") as f:
-                            # f.write(f"{e}\n")
-                            f.write(
-                                f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {i + 1}\n"
-                            )
-                        if not os.path.exists(f"missing_calibration_runs_{pop}_job.sh"):
-                            with open(f"missing_calibration_runs_{pop}_job.sh", "w") as f:
-                                f.write("#!/bin/sh\n")
-                                f.write("#PBS -l walltime=48:00:00\n")
-                                f.write(f"#PBS -N MissingCalibrationRuns_{pop}\n")
-                                f.write("#PBS -q normal\n")
-                                f.write("#PBS -l nodes=4:ppn=28\n")
-                                f.write("cd $PBS_O_WORKDIR\n")
-                                f.write(f"torque-launch missing_calibration_runs_{pop}.txt\n")
+                        # with open(f"missing_calibration_runs_{pop}.txt", "a") as f:
+                        #     # f.write(f"{e}\n")
+                        #     f.write(
+                        #         f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLiteDistrictReporter -j {i + 1}\n"
+                        #     )
+                        # if not os.path.exists(f"missing_calibration_runs_{pop}_job.sh"):
+                        #     with open(f"missing_calibration_runs_{pop}_job.sh", "w") as f:
+                        #         f.write("#!/bin/sh\n")
+                        #         f.write("#PBS -l walltime=48:00:00\n")
+                        #         f.write(f"#PBS -N MissingCalibrationRuns_{pop}\n")
+                        #         f.write("#PBS -q normal\n")
+                        #         f.write("#PBS -l nodes=4:ppn=28\n")
+                        #         f.write("cd $PBS_O_WORKDIR\n")
+                        #         f.write(f"torque-launch missing_calibration_runs_{pop}.txt\n")
+                        missing_cmds.append(
+                            f"./bin/MaSim -i ./conf/{country_code}/calibration/cal_{pop}_{access}_{beta}.yml -o ./output/{country_code}/calibration/cal_{pop}_{access}_{beta}_ -r SQLitePixelReporter -j {i + 1}"
+                        )
                         continue
+    return missing_cmds
 
 
 # ==== Fitting functions ====
@@ -482,7 +363,7 @@ def fit_log_sigmoid_model(
 
     if len(X_filtered) < 3:  # Check if enough data points for regression
         logging.warning(f"Not enough data points for regression: {len(X_filtered)} points found.")
-        return np.empty(0)
+        return np.empty(0, dtype=np.float64())
     try:
         # Perform sigmoid regression
         popt, _ = curve_fit(
@@ -851,11 +732,11 @@ def run_calibration_simulations(
 
     # Execute commands using multiprocessing
     if max_workers is None:
-        max_workers = get_optimal_worker_count(utilization=0.75)
+        max_workers = utils.get_optimal_worker_count()
 
     logger.info(f"Starting calibration with {max_workers} worker processes...")
 
-    successful, failed_commands = multiprocess(cmds, max_workers, logger)
+    successful, failed_commands = utils.multiprocess(cmds, max_workers, logger)
 
     logger.info("\nCalibration completed:")
     logger.info(f"  Successful runs: {successful}")
@@ -865,7 +746,7 @@ def run_calibration_simulations(
         logger.info("Retrying failed commands.")
         # Extract the command text
         failed_commands = [cmd for (cmd, error) in failed_commands]
-        successful, failed_commands = multiprocess(failed_commands, max_workers, logger)
+        successful, failed_commands = utils.multiprocess(failed_commands, max_workers, logger)
 
     if failed_commands:
         # Save failed commands to a file for debugging
@@ -1032,7 +913,7 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
     setup_directories(country_code)
 
     # Set up logger
-    logger = get_country_logger(country_code)
+    logger = utils.get_country_logger(country_code, "calibration")
     logger.info(f"Starting calibration for country: {country_code} with {repetitions} repetitions per parameter set.")
 
     # Load country parameters
@@ -1049,6 +930,16 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
     # Run calibration simulations
     logger.info("Running calibration simulations...")
     run_calibration_simulations(country, access_rates, repetitions, logger=logger)
+
+    # Check for missing runs
+    logger.info("Checking for missing calibration runs...")
+    missing_cmds = check_missing_runs(country.country_name, access_rates, output_dir, repetitions)
+    if missing_cmds:
+        logger.info(f"Found {len(missing_cmds)} missing runs. Re-running these simulations...")
+        successful, failed_commands = utils.multiprocess(missing_cmds, utils.get_optimal_worker_count(), logger)
+        logger.info(f"Re-run completed: {successful} successful, {len(failed_commands)} failed.")
+        if failed_commands:
+            logger.warning("Some commands still failed after re-run. Check logs for details.")
 
     # Summarize calibration results
     logger.info("Summarizing calibration results...")

@@ -22,7 +22,12 @@ dependencies = [
 
 [project.scripts]
 calibrate = "masim_analysis.calibrate:main"
-create-job = "masim_analysis.create_job:create_job"
+commands = "masim_analysis.commands:main"
+masim = "masim_analysis.interactive:main"
+validate = "masim_analysis.validate:main"
+
+[project.optional-dependencies]
+interactive = ["rich>=13.0.0"]
 
 [build-system]
 requires = ["hatchling"]

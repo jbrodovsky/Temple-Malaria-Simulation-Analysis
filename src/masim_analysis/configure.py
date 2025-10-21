@@ -963,25 +963,3 @@ def configure(
     execution_control["events"] = [{"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}]
 
     return execution_control
-
-
-def setup_directories(country_code: str) -> None:
-    """
-    Set up a new country model for the simulation and the accompanying folder structure.
-    Creates the following directories if they do not already exist:
-    - conf/{country_code}
-    - data/{country_code}
-    - images/{country_code}
-    - log/{country_code}
-    - output/{country_code}
-
-    # Arguments
-    - country_code: str
-        The country code for the new model, e.g., "rwa" for Rwanda.
-    """
-    os.makedirs(f"./conf/{country_code}", exist_ok=True)
-    os.makedirs(f"./data/{country_code}", exist_ok=True)
-    os.makedirs(f"./images/{country_code}", exist_ok=True)
-    os.makedirs(f"./log/{country_code}", exist_ok=True)
-    os.makedirs(f"./output/{country_code}", exist_ok=True)
-    # os.makedirs(f"./scripts/{country_code}", exist_ok=True)
