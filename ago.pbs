@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l walltime=168:00:00
+#PBS -l walltime=240:00:00
 #PBS -N AGO
 #PBS -q nd
 #PBS -l select=1:ncpus=110:host=nd02
@@ -20,3 +20,9 @@ then
 fi
 
 calibrate ago -r 20
+
+echo "Calibration for Angola completed."
+echo "================================"
+echo "Running validation now."
+
+validate ago -r 50
