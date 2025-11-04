@@ -258,6 +258,18 @@ def setup_directories(country_code: str) -> None:
     os.makedirs(f"./output/{country_code}", exist_ok=True)
     # os.makedirs(f"./scripts/{country_code}", exist_ok=True)
 
+    # Check for required raster files in ./data/{country_code}
+    data_dir = Path(f"./data/{country_code}")
+    required_patterns = ["*_pfpr2to10.asc", "*_treatementseeking.asc", "*_population.asc"]
+    missing_files = []
+    for pattern in required_patterns:
+        if not any(data_dir.glob(pattern)):
+            missing_files.append(pattern)
+    if missing_files:
+        print(f"Error: Missing required raster files in {data_dir}: {', '.join(missing_files)}")
+    else:
+        print(f"All required raster files found in {data_dir}.")
+
 
 def main():
     parser = argparse.ArgumentParser(description="MaSim Simulation Control and Analysis Command Utilities")

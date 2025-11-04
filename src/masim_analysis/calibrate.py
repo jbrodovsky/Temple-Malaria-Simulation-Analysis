@@ -721,9 +721,8 @@ def run_calibration_simulations(
         logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-    # country = CountryParams.load(name=country_code)
+    logger.info("Generating calibration commands...")
     cmds = generate_calibration_commands(country, access_rates, repetitions)
-
     logger.info(f"Generated {len(cmds)} simulation commands")
 
     # Create output directory if it doesn't exist
@@ -995,6 +994,22 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
         f"Saved plot to {Path('images') / country.country_code / f'{country.country_code}_log_sigmoid_fit.png'}"
     )
     plt.close(fig)
+
+    # Create beta map
+    logger.info("Creating beta map...")
+    population_raster, meta = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_population_v2.asc"
+    )
+    access_rate_raster, _ = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_treatmentseeking.asc"
+    )
+    prevalence_raster, _ = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_pfpr2to10.asc"
+    )
+    beta_map = create_beta_map(models_map, population_raster, access_rate_raster, prevalence_raster)
+    beta_map_filename = Path("data") / country.country_code / f"{country.country_code}_beta.asc"
+    utils.write_raster(beta_map, beta_map_filename, meta["xllcorner"], meta["yllcorner"], meta["cellsize"])
+    logger.info(f"Saved beta map to {beta_map_filename}")
 
 
 def main():
