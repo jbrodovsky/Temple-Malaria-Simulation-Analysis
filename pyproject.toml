@@ -1,12 +1,12 @@
 [project]
 name = "masim-analysis"
-version = "0.1.0"
-description = "Anaylsis tools for the Temple malaria simulation model"
+version = "0.2.0"
+description = "Analysis and calibration tools for the Temple malaria simulation model maintained by the Boni Lab"
 readme = "README.md"
 authors = [
     { name = "James Brodovsky", email = "jbrodovsky@temple.edu" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "jupyter",
     "matplotlib",
@@ -17,11 +17,17 @@ dependencies = [
     "scipy>=1.13.1",
     "seaborn>=0.13.2",
     "sqlalchemy>=2.0.39",
-    "sympy>=1.13.3",
-    "tqdm>=4.67.1",
+    "sympy>=1.13.3"
 ]
+
 [project.scripts]
-generate-commands = "masim_analysis.commands:main"
+calibrate = "masim_analysis.calibrate:main"
+commands = "masim_analysis.commands:main"
+masim = "masim_analysis.interactive:main"
+validate = "masim_analysis.validate:main"
+
+[project.optional-dependencies]
+interactive = ["rich>=13.0.0"]
 
 [build-system]
 requires = ["hatchling"]

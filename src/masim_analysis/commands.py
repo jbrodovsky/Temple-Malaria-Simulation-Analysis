@@ -1,24 +1,47 @@
 """
-Generate commands and job files for running MaSim simulations.
+Commands module for Malaria Simulation Analysis (MaSimAnalysis).
 
-This module includes functions to:
-- Generate MaSim execution commands based on configuration files.
-- Batch generate commands for multiple configurations.
-- Create job script files for submission to a cluster (e.g., PBS).
+This module provides functions to generate shell commands various
+processes related to MaSim, including generating commands for
+running simulations, batch processing configuration files,
+and creating job files for cluster execution. These commands
+can be access from a few different ways:
+
+1. Building and activating the virtual environment, then running
+   the commands directly from the command line.
+   Use scripts/server_build.bash
+   ```bash
+   scripts/server_build.bash
+   source .venv/bin/activate
+   commands generate ...
+   ```
+
+2. Using `uv run` to execute the commands without activating
+   the virtual environment. However, this requires `uv` to be
+   installed on the system which it currently is not on the cluster.
+    ```bash
+    uv run commands generate ...
+    ```
 """
 
 import argparse
 import os
-from math import ceil, floor
+from enum import Enum
+from pathlib import Path
 from typing import Optional
 
-NODE_MEMORY = 128  # GB
-NODE_CORES = 28  # Cores
-JOB_MEMORY = 8  # GB
-MAX_CORES_PER_NODE = floor(NODE_MEMORY / JOB_MEMORY) - 1  # Cores
-TIME_PER_JOB = 5  # Hour
-MAX_WALL_TIME = 48  # Hour
-JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
+import numpy as np
+
+from masim_analysis import utils, calibrate
+
+
+class Cluster(Enum):
+    ONE = "nd01"
+    TWO = "nd02"
+    THREE = "nd03"
+    FOUR = "nd04"
+
+
 # Multiprocessing notes:
 # - We can specify the number of repetitions for each strategy using the -j flag
 # - Previous implementation seems to have caused the cluster to run out of memory
@@ -31,21 +54,24 @@ JOBS_PER_NODE = floor(MAX_WALL_TIME / TIME_PER_JOB) * MAX_CORES_PER_NODE  # Jobs
 # using the -j flag is useful on the cluster. It might be useful for local testing.
 
 # We can run approximately 16 jobs simultaneously on a single node
-# We can run approximatley 10 sequential job-batchs on a single node (48 / 4.5)
+# We can run approximately 10 sequential job-batches on a single node (48 / 4.5)
 # We can run approximately 160 jobs on a single node (16 * 10) for the max wall time
 
 
 def generate_commands(
-    input_configuration_file: str, output_directory: str, repetitions: int = 1
+    input_configuration_file: Path | str,
+    output_directory: Path | str,
+    repetitions: int = 1,
+    use_pixel_reporter: bool = True,
 ) -> tuple[str, list[str]]:
     """
     Generate commands for MaSim.
 
     Parameters
     ----------
-    input_configuration_file : str
+    input_configuration_file : Path | str
         The input configuration file path, ex: ./conf/rwa/AL5.yml.
-    output_directory : str
+    output_directory : Path | str
         The output directory to store simulation results, ex: ./output/rwa.
     repetitions : int, optional
         The number of repetitions, by default 1.
@@ -55,29 +81,34 @@ def generate_commands(
     tuple[str, list[str]]
         A tuple containing the commands filename and a list of generated commands.
     """
+    # Convert to Path objects for consistent handling
+    input_path = Path(input_configuration_file)
+    output_path = Path(output_directory)
+
     # Check if the output directory exists
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    if not output_path.exists():
+        output_path.mkdir(parents=True, exist_ok=True)
 
     # Parse the strategy name
-    strategy_name = os.path.basename(input_configuration_file).split(".yml")[0]
+    strategy_name = input_path.stem
     commands_filename = f"{strategy_name}_{repetitions}reps.txt"
-    if os.path.exists(commands_filename):
-        os.remove(commands_filename)
+    commands_path = Path(commands_filename)
+    if commands_path.exists():
+        commands_path.unlink()
     commands = []
-    # with open(commands_filename, "w") as f:
-    output_file = os.path.join(output_directory, f"{strategy_name}")
-
+    output_file = output_path / strategy_name
+    if use_pixel_reporter:
+        reporter = "SQLitePixelReporter"
+    else:
+        reporter = "SQLiteDistrictReporter"
     for i in range(repetitions):
-        commands.append(
-            f"./bin/MaSim -i {input_configuration_file} -o {output_file}_ -r SQLiteDistrictReporter -j {i}\n"
-        )
+        commands.append(f"./bin/MaSim -i {input_path} -o {output_file}_ -r {reporter} -j {i}\n")
     return commands_filename, commands
 
 
-def batch_generate_command_jobs(
-    input_configuration_directory: str,
-    output_directory: str,
+def batch_generate_commands(
+    input_configuration_directory: Path | str,
+    output_directory: Path | str,
     repetitions: int = 1,
 ) -> list[str]:
     """
@@ -85,9 +116,9 @@ def batch_generate_command_jobs(
 
     Parameters
     ----------
-    input_configuration_directory : str
+    input_configuration_directory : Path | str
         The input configuration directory, ex: ./input/rwa.
-    output_directory : str
+    output_directory : Path | str
         The output directory, ex: ./output/rwa.
     repetitions : int, optional
         The number of repetitions, by default 1.
@@ -97,126 +128,274 @@ def batch_generate_command_jobs(
     list[str]
         A list of all generated commands.
     """
+    # Convert to Path objects for consistent handling
+    input_path = Path(input_configuration_directory)
+    output_path = Path(output_directory)
+
     commands = []
-    for root, _, files in os.walk(input_configuration_directory):
-        for file in files:
-            if file.endswith(".yml"):
-                input_configuration_file = os.path.join(root, file)
-                _, new_commands = generate_commands(
-                    input_configuration_file,
-                    output_directory,
-                    repetitions,
-                    # in_parallel=True,
-                )
-                commands.extend(new_commands)
+    for yml_file in input_path.rglob("*.yml"):
+        _, new_commands = generate_commands(
+            yml_file,
+            output_path,
+            repetitions,
+            # in_parallel=True,
+        )
+        commands.extend(new_commands)
     return commands
 
 
 def generate_job_file(
     commands_filename: str,
-    job_name: str = "MyJob",
+    node: Cluster = Cluster.ONE,
+    job_name: Path | str = Path("MyJob"),
     cores_override: Optional[int] = None,
-    nodes_override: Optional[int] = None,
+    time_override: Optional[int] = 48,
+    std_output_location: Optional[Path | str] = Path("."),
+    std_error_location: Optional[Path | str] = Path("."),
     email: Optional[str] = None,
 ) -> None:
     """
-    Generate a job file for submitting MaSim commands to a cluster.
+    Generate a generic job file for submitting a list of commands to
+    execute on the cluster in parallel. The list of commands should
+    be contained in a text file with one command per line.
 
     Parameters
     ----------
     commands_filename : str
-        The name of the file containing the MaSim commands.
+        The file path and name of the file containing the shell commands to execute.
+    node : Cluster, optional
+        The cluster node to use, by default Cluster.ONE (nd01).
     job_name : str, optional
         The name of the job, by default "MyJob".
     cores_override : Optional[int], optional
-        Override the number of cores per node, by default None.
-    nodes_override : Optional[int], optional
-        Override the number of nodes, by default None.
+        Override the number of cores per node, by default None which
+        the usage to maximum.
+    time_override : Optional[int], optional
+        Override the wall time in hours, by default 48.
+    std_output_location : Optional[Path | str], optional
+        Standard output file location, by default None, which sets the
+        output location to '.' and thus writes to ./<job_name>.output.
+    std_error_location : Optional[Path | str], optional
+        Standard error file location, by default None, which sets the
+        error location to '.' and thus writes to ./<job_name>.error.
     email : Optional[str], optional
         Email address for job notifications, by default None.
     """
-    # Get the number of lines in commands_filename
-    with open(commands_filename, "r") as f:
-        num_commands = sum(1 for _ in f)
     # Generate the job file
-    job_filename = f"{job_name}.sh"
+    job_filename = f"{job_name}.pbs"
     if os.path.exists(job_filename):
         os.remove(job_filename)
 
-    # Read the length of the commands file
-    if (cores_override is not None and cores_override > 0 and cores_override <= 28) and (
-        nodes_override is not None and nodes_override > 0 and nodes_override <= 10
-    ):
-        # needed_nodes = ceil(num_commands / cores_override)
+    # Normalize available CPU count to a non-None int
+    available_cpus = os.cpu_count() or 1
+
+    if cores_override is None:
+        cores_requested = available_cpus
+    elif cores_override is not None and cores_override <= available_cpus:
         cores_requested = cores_override
-        needed_nodes = nodes_override
     else:
-        needed_nodes = ceil(num_commands / JOBS_PER_NODE)
-        cores_requested = MAX_CORES_PER_NODE
+        cores_requested = available_cpus
+
+    wait_for_available_slot = (
+        "function wait_for_available_slot() {\n"
+        f"while (( $(jobs -r | wc -l) >= {cores_requested} )); do\n"
+        "    sleep 0.5 \n"  # <<< check every 0.5s if a slot is free
+        "done\n"
+        "}\n"
+    )
+    command_loop = (
+        'while IFS= read -r line || [[ -n "$line" ]]; do\n'
+        '    if [[ -n "$line" ]]; then\n'
+        "        wait_for_available_slot\n"  # <<< wait if too many jobs
+        '        echo "Running: $line" \n'
+        f'        eval "$line" > {std_output_location}/{job_name}_${{INDEX}}.output 2> {std_error_location}/{job_name}_${{INDEX}}.error & \n'
+        "        ((INDEX++))\n"
+        "    fi\n"
+        f"done < {commands_filename}\n"
+    )
 
     with open(job_filename, "w") as f:
-        f.write("#!/bin/sh\n")
-        f.write("#PBS -l walltime=48:00:00\n")
+        f.write("#!/bin/bash\n")
+        f.write(f"#PBS -l walltime={time_override}:00:00\n")
         f.write(f"#PBS -N {job_name}\n")
-        f.write("#PBS -q normal\n")
+        f.write("#PBS -q nd\n")
+        f.write(f"#PBS -l select=1:ncpus={cores_requested}:host={node.value}\n")
+        f.write(f"#PBS -o {std_output_location}/{job_name}.output\n")
+        f.write(f"#PBS -e {std_error_location}/{job_name}.error\n")
         if email:
             f.write("#PBS -m bae\n")
             f.write(f"#PBS -M {email}\n")
-        f.write(f"#PBS -l nodes={needed_nodes}:ppn={cores_requested}\n")
+        f.write("\n")
         f.write("cd $PBS_O_WORKDIR\n")
-        f.write(f"torque-launch {commands_filename}\n")
+        f.write(wait_for_available_slot)
+        f.write("\n")
+        f.write(command_loop)
+        f.write("\n")
     # Display the commands file
-    # print(f"Commands file: {commands_filename}")
-    # print(f"Job script: {job_filename}")
-    # run_command = f"qsub {job_filename}"
-    # print(f"To submit the job, run: {run_command}")
+    print(f"Job file generate for {commands_filename} and saved to: {job_filename}")
+    run_command = f"qsub {job_filename}"
+    print(f"To submit the job, run: {run_command}")
 
 
-def main() -> None:
+def setup_directories(country_code: str) -> None:
     """
-    Main function to handle command-line arguments for generating MaSim commands and job files.
+    Set up a new country model for the simulation and the accompanying folder structure.
+    Creates the following directories if they do not already exist:
+    - conf/{country_code}
+    - data/{country_code}
+    - images/{country_code}
+    - log/{country_code}
+    - output/{country_code}
+
+    # Arguments
+    - country_code: str
+        The country code for the new model, e.g., "rwa" for Rwanda.
     """
-    parser = argparse.ArgumentParser(description="Generate commands for MaSim")
-    parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        required=True,
-        help="The input configuration file path, ex: ./conf/rwa/AL5.yml or /conf/rwa. If it is a directory, it will batch generate commands for all the files in the directory.",
+    os.makedirs(f"./conf/{country_code}", exist_ok=True)
+    os.makedirs(f"./data/{country_code}", exist_ok=True)
+    os.makedirs(f"./images/{country_code}", exist_ok=True)
+    os.makedirs(f"./log/{country_code}", exist_ok=True)
+    os.makedirs(f"./output/{country_code}", exist_ok=True)
+    # os.makedirs(f"./scripts/{country_code}", exist_ok=True)
+
+    # Check for required raster files in ./data/{country_code}
+    data_dir = Path(f"./data/{country_code}")
+    required_patterns = ["*_pfpr2to10.asc", "*_treatementseeking.asc", "*_population.asc"]
+    missing_files = []
+    for pattern in required_patterns:
+        if not any(data_dir.glob(pattern)):
+            missing_files.append(pattern)
+    if missing_files:
+        print(f"Error: Missing required raster files in {data_dir}: {', '.join(missing_files)}")
+    else:
+        print(f"All required raster files found in {data_dir}.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="MaSim Simulation Control and Analysis Command Utilities")
+    subparsers = parser.add_subparsers(dest="command", required=True)  # Commands set
+
+    # ---- Basic utility commands contained in this module ----
+    # Generate commands
+    gen_cmd = subparsers.add_parser("generate", help="Generate MaSim commands")
+    gen_cmd.add_argument("-c", "--configuration", type=str, help="Path to configuration (.yml) file", required=True)
+    gen_cmd.add_argument(
+        "-o", "--output_directory", type=str, default="", help="Output directory for simulation results"
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        required=True,
-        help="The output directory to store simulation results, ex: ./output/rwa",
+    gen_cmd.add_argument(
+        "-n", "--name", type=str, default=None, help="Name for the strategy (overrides configuration file name)"
     )
-    parser.add_argument(
+    gen_cmd.add_argument(
         "-r",
         "--repetitions",
         type=int,
         default=1,
-        help="The number of repetitions to run for each strategy specified by the input configuration file",
+        help="Number of repetitions per parameter combination.",
     )
-    parser.add_argument(
-        "-n",
-        "--name",
+    gen_cmd.add_argument(
+        "-p", "--reporter", action="store_true", default=False, help="Use pixel reporter instead of district reporter"
+    )
+
+    # Batch generate commands
+    batch_cmd = subparsers.add_parser("batch", help="Batch generate MaSim commands from multiple configuration files")
+    batch_cmd.add_argument("-i", "--input", type=str, help="Input configuration directory", required=True)
+    batch_cmd.add_argument(
+        "-o", "--output", type=str, help="Output directory for simulation results", default="./output"
+    )
+    batch_cmd.add_argument("-r", "--repetitions", type=int, default=1)
+    batch_cmd.add_argument("-n", "--name", type=str, default="batch_commands.txt", help="Name for the commands file")
+
+    # Generate job file
+    job_cmd = subparsers.add_parser("job", help="Generate a PBS job file")
+    job_cmd.add_argument("-f", "--filename", type=str, help="Commands filename", required=True)
+    job_cmd.add_argument(
+        "-d",
+        "--node",
         type=str,
-        default="MyJob",
-        help="The name of the job to submit to the cluster (default: MyJob)",
+        choices=[c.value for c in Cluster],
+        default=Cluster.ONE.value,
+        help="Cluster node to use",
+    )
+    job_cmd.add_argument("-n", "--job_name", type=str, default="MyJob", help="Name of the job")
+    job_cmd.add_argument("-c", "--cores_override", type=int, default=None, help="Override number of cores per node")
+    job_cmd.add_argument("-t", "--time_override", type=int, default=48, help="Override wall time in hours")
+    job_cmd.add_argument("-o", "--std_output_location", type=str, default="", help="Standard output location")
+    job_cmd.add_argument("-e", "--std_error_location", type=str, default="", help="Standard error location")
+    job_cmd.add_argument("-m", "--email", type=str, default=None, help="Email for job notifications")
+
+    # ---- Additional commands for MaSimAnalysis processes and procedures defined in separate modules ----
+    # === Full calibration ===
+    calibrate_cmd = subparsers.add_parser("calibrate", help="Calibrate model parameters for a specific country")
+    calibrate_cmd.add_argument("country_code", type=str, help="Country code for calibration (e.g., 'UGA').")
+    calibrate_cmd.add_argument(
+        "-r",
+        "--repetitions",
+        type=int,
+        default=20,
+        help="Number of repetitions per parameter combination (default: 20).",
+    )
+    calibrate_cmd.add_argument(
+        "-o",
+        "--output_dir",
+        type=str,
+        default="output",
+        help="Directory to store output files (default: 'output').",
+    )
+    # Note: The calibration process is several steps with potential failure points along the way. It may or
+    # may not be useful to break out that process into several sub-process commands accessible from this
+    # command line interface. That said, the WHOLE POINT of the the calibration process reform is to make it
+    # so that it is a one-shot fire and forget it process that generates the beta mapping models. Given that,
+    # if it has the correct inputs and has been thoroughly tested, it should just work. Failures should be
+    # rare and likely due to bad input data or an edge case bug.
+
+    setup_cmd = subparsers.add_parser("setup", help="Set up directory structure for a new country model")
+    setup_cmd.add_argument(
+        "country_code", type=str, help="Country code for the new model (e.g., 'uga', 'ago', 'moz', 'rwa', et cetera)."
     )
 
     args = parser.parse_args()
-    # generate_commands(args.input, args.output, args.repetitions)
-    if os.path.isdir(args.input):
-        commands = batch_generate_command_jobs(args.input, args.output, args.repetitions)
-        filename = "batch_commands.txt"
+
+    if args.command == "generate":
+        filename, commands = generate_commands(
+            args.input_configuration_file,
+            args.output_directory,
+            args.repetitions,
+            args.use_pixel_reporter,
+        )
+        if args.name:
+            filename = args.name
+        with open(filename, "w") as f:
+            f.writelines(commands)
+        print(f"Commands written to {filename}")
+
+    elif args.command == "batch":
+        commands = batch_generate_commands(
+            args.input_configuration_directory,
+            args.output_directory,
+            args.repetitions,
+        )
+        with open(args.name, "w") as f:
+            f.writelines(commands)
+        print(f"Batch commands written to {args.name}")
+
+    elif args.command == "job":
+        node = Cluster(args.node)
+        generate_job_file(
+            args.commands_filename,
+            node=node,
+            job_name=args.job_name,
+            cores_override=args.cores_override,
+            time_override=args.time_override,
+            std_output_location=args.std_output_location,
+            std_error_location=args.std_error_location,
+            email=args.email,
+        )
+    elif args.command == "calibrate":
+        calibrate.calibrate(args.country_code, args.repetitions, args.output_dir)
+    elif args.command == "setup":
+        setup_directories(args.country_code.lower())
     else:
-        filename, commands = generate_commands(args.input, args.output, args.repetitions)
-    with open(filename, "w") as f:
-        for command in commands:
-            f.write(command)
-    generate_job_file(filename, args.name)
+        parser.print_help()
 
 
 if __name__ == "__main__":

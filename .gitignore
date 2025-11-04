@@ -1,5 +1,6 @@
-.ruff_cahce
+.ruff_cache
 .venv
+.vscode
 *.db
 *.png
 *.db-journal
@@ -9,7 +10,7 @@ src/masim_analysis/__pycache__/__init__.cpython-312.pyc
 src/masim_analysis/__pycache__/commands.cpython-312.pyc
 src/masim_analysis/__pycache__/configure.cpython-312.pyc
 launch_jobs.sh
-.ruff_cache
-.vscode
 
-output/moz/validation/*.csv
+output/
+logs/
+data/*/calibration/
