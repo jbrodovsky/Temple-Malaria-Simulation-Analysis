@@ -30,9 +30,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 
-from masim_analysis import utils, calibrate
+from masim_analysis import calibrate
 
 
 class Cluster(Enum):

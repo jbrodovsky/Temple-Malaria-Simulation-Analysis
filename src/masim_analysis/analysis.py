@@ -14,7 +14,6 @@ from numpy.typing import NDArray
 import pandas as pd
 from matplotlib.figure import Figure
 
-from masim_analysis.configure import CountryParams
 
 table_names = [
     "monthlydata",

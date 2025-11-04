@@ -21,7 +21,6 @@ from rich.console import Console
 from rich.prompt import Prompt, IntPrompt, Confirm
 from rich.panel import Panel
 from rich.table import Table
-from pathlib import Path
 
 from masim_analysis.commands import (
     generate_commands,
