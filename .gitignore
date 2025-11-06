@@ -14,3 +14,4 @@ launch_jobs.sh
 output/
 logs/
 data/*/calibration/
+conf/*/calibration/
