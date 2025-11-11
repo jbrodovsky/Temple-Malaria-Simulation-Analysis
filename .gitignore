@@ -17,3 +17,5 @@ data/*/calibration/
 conf/*/calibration/
 
 myeasylog.log
+*.log
+*.csv
