@@ -102,24 +102,22 @@ def post_process(country: CountryParams, params: dict, logger: logging.Logger | 
         ave_cases, ave_prevalence_2_to_10, ave_prevalence_under_5, ave_population
     )
     logger.info(
-        f"{mean_cases['mean'].sum(): ,.0f} clinical episodes | SCALED: {mean_cases['mean'].sum() * params['artificial_rescaling_of_population_size']: ,.0f}"
+        f"{mean_cases['mean'].sum(): ,.0f} clinical episodes | SCALED: {mean_cases['mean'].sum() / params['artificial_rescaling_of_population_size']: ,.0f}"
     )
     logger.info(
-        f"{mean_population['mean'].sum(): ,.0f} population | SCALED: {mean_population['mean'].sum() * params['artificial_rescaling_of_population_size']: ,.0f}"
+        f"{mean_population['mean'].sum(): ,.0f} population | SCALED: {mean_population['mean'].sum() / params['artificial_rescaling_of_population_size']: ,.0f}"
     )
-    # logger.info(f"Mean prevalence 2 to 10: {mean_prevalence_2_to_10['mean'].mean():.2%}")
-    # logger.info(f"Mean prevalence under 5: {mean_prevalence_under_5
-
     # Prevalence comparison
     prevalence = _prevelance_comparison(
         country, ave_cases, mean_prevalence_2_to_10, mean_prevalence_under_5, mean_population
     )
+    prevalence["population"] = mean_population["mean"]  # FIXED BUG HERE
     prevalence.to_csv(Path("output") / country.country_code / "validation" / "prevalence_comparison.csv")
     logger.info("Prevalence comparison data saved.")
     prevalence_fit = analysis.plot_prevalence_trend(
         prevalence["obs"].to_numpy(),
         prevalence["mean_2_to_10"].to_numpy(),
-        prevalence["population"].to_numpy(),
+        prevalence["population"].to_numpy(),  # BUG HERE
         "2 to 10",
     )
     prevalence_fit.savefig(
@@ -166,6 +164,7 @@ def validate(country_code: str, repetitions: int = 50, output_dir: Path | str = 
         calibration_str="",
         calibration=False,
     )
+    params["artificial_rescaling_of_population_size"] = 0.25
     params["events"].extend(events)
     with open(Path("conf") / country_code.lower() / "test" / "validation_config.yaml", "w") as f:
         yaml.dump(params, f)

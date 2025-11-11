@@ -20,6 +20,7 @@ import numpy as np
 from pandas import DataFrame
 
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
 from numpy.typing import NDArray, ArrayLike
 import numpy.typing as npt
 from ruamel.yaml import YAML
@@ -958,6 +959,34 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
         json.dump(models_map, f, indent=4)
     logger.info(f"Saved models map to {Path('data') / country.country_code / 'calibration' / models_map_filename}")
 
+    # Plot the log-sigmoid fits
+
+    # Create beta map
+    logger.info("Creating beta map...")
+    population_raster, meta = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_population_v2.asc"
+    )
+    access_rate_raster, _ = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_treatmentseeking.asc"
+    )
+    prevalence_raster, _ = utils.read_raster(
+        Path("data") / country.country_code / f"{country.country_code}_pfpr2to10.asc"
+    )
+    beta_map = create_beta_map(models_map, population_raster, access_rate_raster, prevalence_raster)
+    beta_map_filename = Path("data") / country.country_code / f"{country.country_code}_beta.asc"
+    utils.write_raster(beta_map, beta_map_filename, meta["xllcorner"], meta["yllcorner"], meta["cellsize"])
+    logger.info(f"Saved beta map to {beta_map_filename}")
+
+
+def plot_log_sigmoid_fits(
+    models_map: dict[float, dict[int, list[float]]],
+    access_rates: list[float],
+    means: DataFrame,
+    country: CountryParams,
+    logger: logging.Logger | None = None,
+) -> Figure:
+    if logger is None:
+        logger = utils.get_country_logger(country.country_code, "calibration")
     # Plot all the model data, fits, and inverse fits on the same figure
     num_rows = len(POPULATION_BINS)
     num_cols = len(access_rates)
@@ -989,27 +1018,12 @@ def calibrate(country_code: str, repetitions: int, output_dir: Path | str = Path
             ax.set_ylim(0, 1)
     fig.suptitle("pfPr vs. Beta Data and Curve Fits by Population & Treatment Access", fontsize=24)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
-    fig.savefig(Path("images") / country.country_code / f"{country.country_code}_log_sigmoid_fit.png")
-    logger.info(
-        f"Saved plot to {Path('images') / country.country_code / f'{country.country_code}_log_sigmoid_fit.png'}"
-    )
-    plt.close(fig)
-
-    # Create beta map
-    logger.info("Creating beta map...")
-    population_raster, meta = utils.read_raster(
-        Path("data") / country.country_code / f"{country.country_code}_population_v2.asc"
-    )
-    access_rate_raster, _ = utils.read_raster(
-        Path("data") / country.country_code / f"{country.country_code}_treatmentseeking.asc"
-    )
-    prevalence_raster, _ = utils.read_raster(
-        Path("data") / country.country_code / f"{country.country_code}_pfpr2to10.asc"
-    )
-    beta_map = create_beta_map(models_map, population_raster, access_rate_raster, prevalence_raster)
-    beta_map_filename = Path("data") / country.country_code / f"{country.country_code}_beta.asc"
-    utils.write_raster(beta_map, beta_map_filename, meta["xllcorner"], meta["yllcorner"], meta["cellsize"])
-    logger.info(f"Saved beta map to {beta_map_filename}")
+    return fig
+    # fig.savefig(Path("images") / country.country_code / f"{country.country_code}_log_sigmoid_fit.png")
+    # logger.info(
+    #     f"Saved plot to {Path('images') / country.country_code / f'{country.country_code}_log_sigmoid_fit.png'}"
+    # )
+    # plt.close(fig)
 
 
 def main():

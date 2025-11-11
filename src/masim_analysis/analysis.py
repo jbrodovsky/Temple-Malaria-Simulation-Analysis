@@ -752,6 +752,8 @@ def plot_prevalence_trend(
     simulated: NDArray | list[float],
     populations: NDArray | list[float] | None = None,
     age_str: str | None = None,
+    population_plot_scalar: float = 100.0,
+    upper_limit: float = 0.6,
 ) -> Figure:
     """
     Plot prevalence trend from observed data.
@@ -781,7 +783,7 @@ def plot_prevalence_trend(
     ax.scatter(
         observed,
         simulated,
-        s=populations / np.max(populations) * 100,
+        s=populations / np.nanmax(populations) * population_plot_scalar,
         marker="o",
         alpha=0.35,
         cmap="viridis",
@@ -790,16 +792,16 @@ def plot_prevalence_trend(
     )
     cbar = ax.figure.colorbar(ax.collections[0])
     cbar.set_label("Population", rotation=270, labelpad=15)
-    x = np.linspace(0, 1, 1000)
+    x = np.linspace(0, upper_limit, 1000)
     ax.plot(x, x, color="red", linestyle="--")
-    ax.set_xlim((0, 0.6))
-    ax.set_ylim((0, 0.6))
+    ax.set_xlim((0.0, upper_limit))
+    ax.set_ylim((0.0, upper_limit))
     ax.set_xlabel("Observed PfPR")
     ax.set_ylabel("Predicted PfPR")
     if age_str is None:
         ax.set_title("Observed vs Predicted PfPR")
     else:
         ax.set_title(f"Observed vs Predicted PfPR ({age_str.replace('_', ' ')})")
-    ax.set_xticks(np.arange(0, 0.6, 0.1))
+    ax.set_xticks(np.arange(0.0, upper_limit, 0.1))
     ax.legend()
     return fig

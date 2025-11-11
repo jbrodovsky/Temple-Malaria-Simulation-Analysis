@@ -15,3 +15,5 @@ output/
 logs/
 data/*/calibration/
 conf/*/calibration/
+
+myeasylog.log
