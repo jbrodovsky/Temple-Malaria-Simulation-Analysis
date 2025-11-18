@@ -19,463 +19,554 @@ NODATA_VALUE = -9999
 yaml = YAML()
 
 # --- YAML Database Constants ---
-# These are the dictionaries that define various constants parameters used by the simulation
-# TODO: #10 Convert database dictionaries to dataclasses for better type checking and validation
-GENOTYPE_INFO = {
-    "loci": [
-        {
-            "locus_name": "pfcrt",
-            "position": 0,
-            "alleles": [
-                {
-                    "value": 0,
-                    "allele_name": "K76",
-                    "short_name": "K",
-                    "can_mutate_to": [1],
-                    "mutation_level": 0,
-                    "daily_cost_of_resistance": 0.0,
-                },
-                {
-                    "value": 1,
-                    "allele_name": "76T",
-                    "short_name": "T",
-                    "can_mutate_to": [0],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.0005,
-                },
+# These are the dataclasses that define various constants parameters used by the simulation
+
+
+@dataclass
+class Allele:
+    """Represents a genetic allele with its properties."""
+
+    value: int
+    allele_name: str
+    short_name: str
+    can_mutate_to: List[int]
+    mutation_level: int
+    daily_cost_of_resistance: float
+
+
+@dataclass
+class Locus:
+    """Represents a genetic locus containing multiple alleles."""
+
+    locus_name: str
+    position: int
+    alleles: List[Allele]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert locus to dictionary for YAML serialization."""
+        return {"locus_name": self.locus_name, "position": self.position, "alleles": [asdict(a) for a in self.alleles]}
+
+
+@dataclass
+class GenotypeInfo:
+    """Container for genotype information including all loci."""
+
+    loci: List[Locus]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert genotype info to dictionary for YAML serialization."""
+        return {"loci": [locus.to_dict() for locus in self.loci]}
+
+
+@dataclass
+class DrugInfo:
+    """Represents a drug with all its pharmacological properties."""
+
+    name: str
+    half_life: float
+    maximum_parasite_killing_rate: float
+    n: int
+    age_specific_drug_concentration_sd: List[float]
+    mutation_probability: float
+    affecting_loci: List[int]
+    selecting_alleles: List[List[int]]
+    k: int
+    EC50: Dict[str, float]
+    resistant_factor: List[List[int]] = field(default_factory=list)
+
+
+@dataclass
+class DrugDatabase:
+    """Container for all drug information indexed by drug ID."""
+
+    drugs: Dict[int, DrugInfo]
+
+    def to_dict(self) -> Dict[int, Dict[str, Any]]:
+        """Convert drug database to dictionary for YAML serialization."""
+        return {drug_id: asdict(drug) for drug_id, drug in self.drugs.items()}
+
+
+@dataclass
+class TherapyInfo:
+    """Represents a therapy regimen consisting of one or more drugs."""
+
+    drug_id: List[int]
+    dosing_days: List[int]
+
+
+@dataclass
+class TherapyDatabase:
+    """Container for all therapy information indexed by therapy ID."""
+
+    therapies: Dict[int, TherapyInfo]
+
+    def to_dict(self) -> Dict[int, Dict[str, Any]]:
+        """Convert therapy database to dictionary for YAML serialization."""
+        return {therapy_id: asdict(therapy) for therapy_id, therapy in self.therapies.items()}
+
+
+# Create the database instances
+GENOTYPE_INFO = GenotypeInfo(
+    loci=[
+        Locus(
+            locus_name="pfcrt",
+            position=0,
+            alleles=[
+                Allele(
+                    value=0,
+                    allele_name="K76",
+                    short_name="K",
+                    can_mutate_to=[1],
+                    mutation_level=0,
+                    daily_cost_of_resistance=0.0,
+                ),
+                Allele(
+                    value=1,
+                    allele_name="76T",
+                    short_name="T",
+                    can_mutate_to=[0],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.0005,
+                ),
             ],
-        },
-        {
-            "locus_name": "pfmdr1",
-            "position": 1,
-            "alleles": [
-                {
-                    "value": 0,
-                    "allele_name": "N86 Y184 one copy of pfmdr1",
-                    "short_name": "NY--",
-                    "can_mutate_to": [1, 2, 4],
-                    "mutation_level": 0,
-                    "daily_cost_of_resistance": 0.0,
-                },
-                {
-                    "value": 1,
-                    "allele_name": "86Y Y184 one copy of pfmdr1",
-                    "short_name": "YY--",
-                    "can_mutate_to": [3, 0, 5],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.0005,
-                },
-                {
-                    "value": 2,
-                    "allele_name": "N86 184F one copy of pfmdr1",
-                    "short_name": "NF--",
-                    "can_mutate_to": [3, 0, 6],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.0005,
-                },
-                {
-                    "value": 3,
-                    "allele_name": "86Y 184F one copy of pfmdr1",
-                    "short_name": "YF--",
-                    "can_mutate_to": [1, 2, 7],
-                    "mutation_level": 2,
-                    "daily_cost_of_resistance": 0.00099975,
-                },
-                {
-                    "value": 4,
-                    "allele_name": "N86 Y184 2 copies of pfmdr1",
-                    "short_name": "NYNY",
-                    "can_mutate_to": [0],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.005,
-                },
-                {
-                    "value": 5,
-                    "allele_name": "86Y Y184 2 copies of pfmdr1",
-                    "short_name": "YYYY",
-                    "can_mutate_to": [1],
-                    "mutation_level": 2,
-                    "daily_cost_of_resistance": 0.0055,
-                },
-                {
-                    "value": 6,
-                    "allele_name": "N86 184F 2 copies of pfmdr1",
-                    "short_name": "NFNF",
-                    "can_mutate_to": [2],
-                    "mutation_level": 2,
-                    "daily_cost_of_resistance": 0.0055,
-                },
-                {
-                    "value": 7,
-                    "allele_name": "86Y 184F 2 copies of pfmdr1",
-                    "short_name": "YFYF",
-                    "can_mutate_to": [3],
-                    "mutation_level": 3,
-                    "daily_cost_of_resistance": 0.006,
-                },
+        ),
+        Locus(
+            locus_name="pfmdr1",
+            position=1,
+            alleles=[
+                Allele(
+                    value=0,
+                    allele_name="N86 Y184 one copy of pfmdr1",
+                    short_name="NY--",
+                    can_mutate_to=[1, 2, 4],
+                    mutation_level=0,
+                    daily_cost_of_resistance=0.0,
+                ),
+                Allele(
+                    value=1,
+                    allele_name="86Y Y184 one copy of pfmdr1",
+                    short_name="YY--",
+                    can_mutate_to=[3, 0, 5],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.0005,
+                ),
+                Allele(
+                    value=2,
+                    allele_name="N86 184F one copy of pfmdr1",
+                    short_name="NF--",
+                    can_mutate_to=[3, 0, 6],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.0005,
+                ),
+                Allele(
+                    value=3,
+                    allele_name="86Y 184F one copy of pfmdr1",
+                    short_name="YF--",
+                    can_mutate_to=[1, 2, 7],
+                    mutation_level=2,
+                    daily_cost_of_resistance=0.00099975,
+                ),
+                Allele(
+                    value=4,
+                    allele_name="N86 Y184 2 copies of pfmdr1",
+                    short_name="NYNY",
+                    can_mutate_to=[0],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.005,
+                ),
+                Allele(
+                    value=5,
+                    allele_name="86Y Y184 2 copies of pfmdr1",
+                    short_name="YYYY",
+                    can_mutate_to=[1],
+                    mutation_level=2,
+                    daily_cost_of_resistance=0.0055,
+                ),
+                Allele(
+                    value=6,
+                    allele_name="N86 184F 2 copies of pfmdr1",
+                    short_name="NFNF",
+                    can_mutate_to=[2],
+                    mutation_level=2,
+                    daily_cost_of_resistance=0.0055,
+                ),
+                Allele(
+                    value=7,
+                    allele_name="86Y 184F 2 copies of pfmdr1",
+                    short_name="YFYF",
+                    can_mutate_to=[3],
+                    mutation_level=3,
+                    daily_cost_of_resistance=0.006,
+                ),
             ],
-        },
-        {
-            "locus_name": "K13 Propeller",
-            "position": 2,
-            "alleles": [
-                {
-                    "value": 0,
-                    "allele_name": "R561",
-                    "short_name": "R",
-                    "can_mutate_to": [1],
-                    "mutation_level": 0,
-                    "daily_cost_of_resistance": 0.0,
-                },
-                {
-                    "value": 1,
-                    "allele_name": "561H",
-                    "short_name": "H",
-                    "can_mutate_to": [0],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.0005,
-                },
+        ),
+        Locus(
+            locus_name="K13 Propeller",
+            position=2,
+            alleles=[
+                Allele(
+                    value=0,
+                    allele_name="R561",
+                    short_name="R",
+                    can_mutate_to=[1],
+                    mutation_level=0,
+                    daily_cost_of_resistance=0.0,
+                ),
+                Allele(
+                    value=1,
+                    allele_name="561H",
+                    short_name="H",
+                    can_mutate_to=[0],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.0005,
+                ),
             ],
-        },
-        {
-            "locus_name": "Plasmepsin 2-3",
-            "position": 3,
-            "alleles": [
-                {
-                    "value": 0,
-                    "allele_name": "Plasmepsin 2-3 one copy",
-                    "short_name": "1",
-                    "can_mutate_to": [1],
-                    "mutation_level": 0,
-                    "daily_cost_of_resistance": 0.0,
-                },
-                {
-                    "value": 1,
-                    "allele_name": "Plasmepsin 2-3 2 copies",
-                    "short_name": "2",
-                    "can_mutate_to": [0],
-                    "mutation_level": 1,
-                    "daily_cost_of_resistance": 0.0005,
-                },
+        ),
+        Locus(
+            locus_name="Plasmepsin 2-3",
+            position=3,
+            alleles=[
+                Allele(
+                    value=0,
+                    allele_name="Plasmepsin 2-3 one copy",
+                    short_name="1",
+                    can_mutate_to=[1],
+                    mutation_level=0,
+                    daily_cost_of_resistance=0.0,
+                ),
+                Allele(
+                    value=1,
+                    allele_name="Plasmepsin 2-3 2 copies",
+                    short_name="2",
+                    can_mutate_to=[0],
+                    mutation_level=1,
+                    daily_cost_of_resistance=0.0005,
+                ),
             ],
-        },
+        ),
     ]
-}
-DRUG_DB = {
-    # Artemisinin
-    0: {
-        "name": "ART",  # or sometimes AR
-        "half_life": 0.0,
-        "maximum_parasite_killing_rate": 0.999,
-        "n": 25,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [2],
-        "selecting_alleles": [[1]],
-        "k": 4,
-        "EC50": {"..0..": 0.75, "..1..": 1.2},
-    },
-    # Amodiaquine
-    1: {
-        "name": "AQ",
-        "half_life": 9.0,
-        "maximum_parasite_killing_rate": 0.95,
-        "n": 19,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [0, 1],
-        "selecting_alleles": [[1], [0, 1, 3, 4, 5, 7]],
-        "k": 4,
-        "EC50": {
-            "00...": 0.62,
-            "01...": 0.85,
-            "02...": 0.5,
-            "03...": 0.775,
-            "04...": 0.62,
-            "05...": 0.85,
-            "06...": 0.5,
-            "07...": 0.775,
-            "10...": 0.7,
-            "11...": 0.9,
-            "12...": 0.65,
-            "13...": 0.82,
-            "14...": 0.7,
-            "15...": 0.9,
-            "16...": 0.65,
-            "17...": 0.82,
-        },
-    },
-    # Sulfadoxine/pyrimethamine
-    2: {
-        "name": "SP",
-        "half_life": 6.5,
-        "maximum_parasite_killing_rate": 0.9,
-        "n": 15,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.0,
-        "affecting_loci": [],
-        "selecting_alleles": [],
-        "k": 4,
-        "EC50": {".....": 1.08},
-    },
-    # Chloroquine
-    3: {
-        "name": "CQ",
-        "half_life": 10,
-        "maximum_parasite_killing_rate": 0.95,
-        "n": 19,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [0, 1],
-        "selecting_alleles": [[1], [1, 3, 5, 7]],
-        "k": 4,
-        "EC50": {
-            "00...": 0.72,
-            "01...": 0.9,
-            "02...": 0.72,
-            "03...": 0.9,
-            "04...": 0.72,
-            "05...": 0.9,
-            "06...": 0.72,
-            "07...": 0.9,
-            "10...": 1.19,
-            "11...": 1.35,
-            "12...": 1.19,
-            "13...": 1.35,
-            "14...": 1.19,
-            "15...": 1.35,
-            "16...": 1.19,
-            "17...": 1.35,
-        },
-    },
-    # Lumefantrine
-    4: {
-        "name": "LUM",
-        "half_life": 4.5,
-        "maximum_parasite_killing_rate": 0.99,
-        "n": 20,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [0, 1],
-        "selecting_alleles": [[0], [0, 2, 3, 4, 6, 7]],
-        "k": 4,
-        "EC50": {
-            "00...": 0.8,
-            "01...": 0.67,
-            "02...": 0.9,
-            "03...": 0.8,
-            "04...": 1.0,
-            "05...": 0.87,
-            "06...": 1.1,
-            "07...": 1.0,
-            "10...": 0.75,
-            "11...": 0.6,
-            "12...": 0.85,
-            "13...": 0.75,
-            "14...": 0.95,
-            "15...": 0.8,
-            "16...": 1.05,
-            "17...": 0.95,
-        },
-    },
-    # Piperaquine
-    5: {
-        "name": "PQ",
-        "half_life": 28.0,
-        "maximum_parasite_killing_rate": 0.9,
-        "n": 15,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [3],
-        "selecting_alleles": [[1]],
-        "resistant_factor": [[1]],
-        "k": 4,
-        "EC50": {"...0.": 0.58, "...1.": 1.4},
-    },
-    # Mefloquine
-    6: {
-        "name": "MF",
-        "half_life": 21.0,
-        "maximum_parasite_killing_rate": 0.9,
-        "n": 15,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.005,
-        "affecting_loci": [1],
-        "selecting_alleles": [[4, 5, 6, 7]],
-        "k": 4,
-        "EC50": {
-            ".0...": 0.45,
-            ".1...": 0.45,
-            ".2...": 0.45,
-            ".3...": 0.45,
-            ".4...": 1.1,
-            ".5...": 1.1,
-            ".6...": 1.1,
-            ".7...": 1.1,
-        },
-    },
-    # Quinine
-    7: {
-        "name": "QUIN",
-        "half_life": 18,
-        "maximum_parasite_killing_rate": 0.9,
-        "n": 3,
-        "age_specific_drug_concentration_sd": [
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-            0.4,
-        ],
-        "mutation_probability": 0.0,
-        "affecting_loci": [],
-        "selecting_alleles": [],
-        "k": 4,
-        "EC50": {"0....": 1.41, "1....": 1.41},
-    },
-}
-THERAPY_DB = {
-    # ACT - artesunate–amodiaquine (ASAQ)
-    0: {"drug_id": [0, 1], "dosing_days": [3]},
-    # ACT - artemether–lumefantrine (AL)
-    1: {"drug_id": [0, 4], "dosing_days": [3]},
-    # ACT - artesunate-mefloquine (ASMQ)
-    2: {"drug_id": [0, 6], "dosing_days": [3]},
-    # ACT - Dihydroartemisinin-piperaquine (DP)
-    3: {"drug_id": [0, 5], "dosing_days": [3]},
-    # MONO - Amodiaquine (ADQ)
-    4: {"drug_id": [1], "dosing_days": [3]},
-    # MONO - Artesunate (AS)
-    5: {"drug_id": [0], "dosing_days": [3]},
-    # MONO - Chloroquine (CQ)
-    6: {"drug_id": [3], "dosing_days": [3]},
-    # MONO - Quinine (QUIN)
-    7: {"drug_id": [7], "dosing_days": [7]},
-    # COMBINATION - Sulfadoxine/pyrimethamine (SP)
-    8: {"drug_id": [2], "dosing_days": [3]},
-}
+)
+
+DRUG_DB = DrugDatabase(
+    drugs={
+        # Artemisinin
+        0: DrugInfo(
+            name="ART",  # or sometimes AR
+            half_life=0.0,
+            maximum_parasite_killing_rate=0.999,
+            n=25,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[2],
+            selecting_alleles=[[1]],
+            k=4,
+            EC50={"..0..": 0.75, "..1..": 1.2},
+        ),
+        # Amodiaquine
+        1: DrugInfo(
+            name="AQ",
+            half_life=9.0,
+            maximum_parasite_killing_rate=0.95,
+            n=19,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[0, 1],
+            selecting_alleles=[[1], [0, 1, 3, 4, 5, 7]],
+            k=4,
+            EC50={
+                "00...": 0.62,
+                "01...": 0.85,
+                "02...": 0.5,
+                "03...": 0.775,
+                "04...": 0.62,
+                "05...": 0.85,
+                "06...": 0.5,
+                "07...": 0.775,
+                "10...": 0.7,
+                "11...": 0.9,
+                "12...": 0.65,
+                "13...": 0.82,
+                "14...": 0.7,
+                "15...": 0.9,
+                "16...": 0.65,
+                "17...": 0.82,
+            },
+        ),
+        # Sulfadoxine/pyrimethamine
+        2: DrugInfo(
+            name="SP",
+            half_life=6.5,
+            maximum_parasite_killing_rate=0.9,
+            n=15,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.0,
+            affecting_loci=[],
+            selecting_alleles=[],
+            k=4,
+            EC50={".....": 1.08},
+        ),
+        # Chloroquine
+        3: DrugInfo(
+            name="CQ",
+            half_life=10,
+            maximum_parasite_killing_rate=0.95,
+            n=19,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[0, 1],
+            selecting_alleles=[[1], [1, 3, 5, 7]],
+            k=4,
+            EC50={
+                "00...": 0.72,
+                "01...": 0.9,
+                "02...": 0.72,
+                "03...": 0.9,
+                "04...": 0.72,
+                "05...": 0.9,
+                "06...": 0.72,
+                "07...": 0.9,
+                "10...": 1.19,
+                "11...": 1.35,
+                "12...": 1.19,
+                "13...": 1.35,
+                "14...": 1.19,
+                "15...": 1.35,
+                "16...": 1.19,
+                "17...": 1.35,
+            },
+        ),
+        # Lumefantrine
+        4: DrugInfo(
+            name="LUM",
+            half_life=4.5,
+            maximum_parasite_killing_rate=0.99,
+            n=20,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[0, 1],
+            selecting_alleles=[[0], [0, 2, 3, 4, 6, 7]],
+            k=4,
+            EC50={
+                "00...": 0.8,
+                "01...": 0.67,
+                "02...": 0.9,
+                "03...": 0.8,
+                "04...": 1.0,
+                "05...": 0.87,
+                "06...": 1.1,
+                "07...": 1.0,
+                "10...": 0.75,
+                "11...": 0.6,
+                "12...": 0.85,
+                "13...": 0.75,
+                "14...": 0.95,
+                "15...": 0.8,
+                "16...": 1.05,
+                "17...": 0.95,
+            },
+        ),
+        # Piperaquine
+        5: DrugInfo(
+            name="PQ",
+            half_life=28.0,
+            maximum_parasite_killing_rate=0.9,
+            n=15,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[3],
+            selecting_alleles=[[1]],
+            resistant_factor=[[1]],
+            k=4,
+            EC50={"...0.": 0.58, "...1.": 1.4},
+        ),
+        # Mefloquine
+        6: DrugInfo(
+            name="MF",
+            half_life=21.0,
+            maximum_parasite_killing_rate=0.9,
+            n=15,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.005,
+            affecting_loci=[1],
+            selecting_alleles=[[4, 5, 6, 7]],
+            k=4,
+            EC50={
+                ".0...": 0.45,
+                ".1...": 0.45,
+                ".2...": 0.45,
+                ".3...": 0.45,
+                ".4...": 1.1,
+                ".5...": 1.1,
+                ".6...": 1.1,
+                ".7...": 1.1,
+            },
+        ),
+        # Quinine
+        7: DrugInfo(
+            name="QUIN",
+            half_life=18,
+            maximum_parasite_killing_rate=0.9,
+            n=3,
+            age_specific_drug_concentration_sd=[
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+                0.4,
+            ],
+            mutation_probability=0.0,
+            affecting_loci=[],
+            selecting_alleles=[],
+            k=4,
+            EC50={"0....": 1.41, "1....": 1.41},
+        ),
+    }
+)
+
+THERAPY_DB = TherapyDatabase(
+    therapies={
+        # ACT - artesunate–amodiaquine (ASAQ)
+        0: TherapyInfo(drug_id=[0, 1], dosing_days=[3]),
+        # ACT - artemether–lumefantrine (AL)
+        1: TherapyInfo(drug_id=[0, 4], dosing_days=[3]),
+        # ACT - artesunate-mefloquine (ASMQ)
+        2: TherapyInfo(drug_id=[0, 6], dosing_days=[3]),
+        # ACT - Dihydroartemisinin-piperaquine (DP)
+        3: TherapyInfo(drug_id=[0, 5], dosing_days=[3]),
+        # MONO - Amodiaquine (ADQ)
+        4: TherapyInfo(drug_id=[1], dosing_days=[3]),
+        # MONO - Artesunate (AS)
+        5: TherapyInfo(drug_id=[0], dosing_days=[3]),
+        # MONO - Chloroquine (CQ)
+        6: TherapyInfo(drug_id=[3], dosing_days=[3]),
+        # MONO - Quinine (QUIN)
+        7: TherapyInfo(drug_id=[7], dosing_days=[7]),
+        # COMBINATION - Sulfadoxine/pyrimethamine (SP)
+        8: TherapyInfo(drug_id=[2], dosing_days=[3]),
+    }
+)
 RELATIVE_INFECTIVITY = {
     "sigma": 3.91,
     "ro": 0.00031,
@@ -956,9 +1047,9 @@ def configure(
     execution_control["initial_parasite_info"] = [entry.to_dict() for entry in initial_parasite_info]
     execution_control["relative_bitting_info"] = asdict(relative_bitting_info)
     execution_control["relative_infectivity"] = RELATIVE_INFECTIVITY
-    execution_control["genotype_info"] = GENOTYPE_INFO
-    execution_control["drug_db"] = DRUG_DB
-    execution_control["therapy_db"] = THERAPY_DB
+    execution_control["genotype_info"] = GENOTYPE_INFO.to_dict()
+    execution_control["drug_db"] = DRUG_DB.to_dict()
+    execution_control["therapy_db"] = THERAPY_DB.to_dict()
     execution_control["strategy_db"] = strategy_db
     execution_control["events"] = [{"name": "turn_off_mutation", "info": [{"day": params.starting_date}]}]
 
