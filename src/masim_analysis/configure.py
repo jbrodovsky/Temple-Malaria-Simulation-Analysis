@@ -3,6 +3,8 @@ MaSim Configuration Generation.
 
 This module provides functions to generate input configuration YAML files for MaSim.
 It is used to create appropriate strategy input files and calibration files.
+
+The module now uses dataclasses for database structures to provide better type checking.
 """
 
 import json
