@@ -31,9 +31,6 @@ from pathlib import Path
 from typing import Optional
 
 
-from masim_analysis import calibrate
-
-
 class Cluster(Enum):
     ONE = "nd01"
     TWO = "nd02"
@@ -255,11 +252,13 @@ def setup_directories(country_code: str) -> None:
     os.makedirs(f"./images/{country_code}", exist_ok=True)
     os.makedirs(f"./log/{country_code}", exist_ok=True)
     os.makedirs(f"./output/{country_code}", exist_ok=True)
+    os.makedirs(f"./output/{country_code}/calibration", exist_ok=True)
+    os.makedirs(f"./output/{country_code}/validation", exist_ok=True)
     # os.makedirs(f"./scripts/{country_code}", exist_ok=True)
 
     # Check for required raster files in ./data/{country_code}
     data_dir = Path(f"./data/{country_code}")
-    required_patterns = ["*_pfpr2to10.asc", "*_treatementseeking.asc", "*_population.asc"]
+    required_patterns = ["*_pfpr2to10.asc", "*_treatmentseeking.asc", "*_initialpopulation.asc", "*_traveltime.asc"]
     missing_files = []
     for pattern in required_patterns:
         if not any(data_dir.glob(pattern)):
@@ -324,22 +323,22 @@ def main():
 
     # ---- Additional commands for MaSimAnalysis processes and procedures defined in separate modules ----
     # === Full calibration ===
-    calibrate_cmd = subparsers.add_parser("calibrate", help="Calibrate model parameters for a specific country")
-    calibrate_cmd.add_argument("country_code", type=str, help="Country code for calibration (e.g., 'UGA').")
-    calibrate_cmd.add_argument(
-        "-r",
-        "--repetitions",
-        type=int,
-        default=20,
-        help="Number of repetitions per parameter combination (default: 20).",
-    )
-    calibrate_cmd.add_argument(
-        "-o",
-        "--output_dir",
-        type=str,
-        default="output",
-        help="Directory to store output files (default: 'output').",
-    )
+    # calibrate_cmd = subparsers.add_parser("calibrate", help="Calibrate model parameters for a specific country")
+    # calibrate_cmd.add_argument("country_code", type=str, help="Country code for calibration (e.g., 'UGA').")
+    # calibrate_cmd.add_argument(
+    #     "-r",
+    #     "--repetitions",
+    #     type=int,
+    #     default=20,
+    #     help="Number of repetitions per parameter combination (default: 20).",
+    # )
+    # calibrate_cmd.add_argument(
+    #     "-o",
+    #     "--output_dir",
+    #     type=str,
+    #     default="output",
+    #     help="Directory to store output files (default: 'output').",
+    # )
     # Note: The calibration process is several steps with potential failure points along the way. It may or
     # may not be useful to break out that process into several sub-process commands accessible from this
     # command line interface. That said, the WHOLE POINT of the the calibration process reform is to make it
@@ -389,8 +388,8 @@ def main():
             std_error_location=args.std_error_location,
             email=args.email,
         )
-    elif args.command == "calibrate":
-        calibrate.calibrate(args.country_code, args.repetitions, args.output_dir)
+    # elif args.command == "calibrate":
+    #     calibrate(args.country_code, args.repetitions, args.output_dir)
     elif args.command == "setup":
         setup_directories(args.country_code.lower())
     else:

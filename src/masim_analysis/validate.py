@@ -11,7 +11,8 @@ import numpy as np
 
 from pandas import DataFrame
 
-from masim_analysis import analysis, calibrate, commands, configure, utils
+from masim_analysis import analysis, commands, configure, utils
+from masim_analysis.calibrate import get_last_year_statistics
 from masim_analysis.configure import CountryParams
 
 
@@ -98,7 +99,7 @@ def post_process(country: CountryParams, params: dict, logger: logging.Logger | 
     ) = _averaging_pass(country)
 
     # Total case count verification
-    mean_cases, mean_prevalence_2_to_10, mean_prevalence_under_5, mean_population = calibrate.get_last_year_statistics(
+    mean_cases, mean_prevalence_2_to_10, mean_prevalence_under_5, mean_population = get_last_year_statistics(
         ave_cases, ave_prevalence_2_to_10, ave_prevalence_under_5, ave_population
     )
     logger.info(
