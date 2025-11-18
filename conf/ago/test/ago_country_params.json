@@ -20,7 +20,7 @@
         0.017
     ],
     "birth_rate": 0.08,
-    "calibration_year": 2022,
+    "calibration_year": 2023,
     "death_rate": [
         0.04814,
         0.041605,
@@ -57,9 +57,9 @@
         100
     ],
     "target_population": 36749906,
-    "starting_date": "2011/01/01",
-    "ending_date": "2023/12/31",
-    "start_of_comparison_period": "2022/01/01",
+    "starting_date": "2012/01/01",
+    "ending_date": "2024/12/31",
+    "start_of_comparison_period": "2023/01/01",
     "target_case_count": 9098006,
     "lower_bound_case_count": 8500000,
     "upper_bound_case_count": 10500000

@@ -4,9 +4,9 @@ connection_string: host=masimdb.vmhost.psu.edu dbname=rwanda user=sim password=s
   connect_timeout=60
 record_genome_db: true
 report_frequency: 30
-starting_date: 2011/01/01
-start_of_comparison_period: 2022/01/01
-ending_date: 2023/12/31
+starting_date: 2012/01/01
+start_of_comparison_period: 2023/01/01
+ending_date: 2024/12/31
 start_collect_data_day: 1826
 number_of_tracking_days: 11
 transmission_parameter: 0.55
@@ -751,7 +751,7 @@ strategy_db:
 events:
 - name: turn_off_mutation
   info:
-  - day: 2011/01/01
+  - day: 2012/01/01
 - name: 2006_strategy
   info:
   - day: 2006/01/01
