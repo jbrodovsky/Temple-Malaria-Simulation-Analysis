@@ -769,27 +769,68 @@ events:
 - name: turn_off_mutation
   info:
   - day: 2011/01/01
-- name: 2003_strategy
+- name: turn_on_mutation
   info:
-  - day: 2003/01/01
-    strategy_id: 0
+  - day: 2011/01/01
+    drug_id : 1
+    mutation_probability : 0.005
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 2
+    mutation_probability : 0.0
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 3
+    mutation_probability : 0.005
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 4
+    mutation_probability : 0.005
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 5
+    mutation_probability : 0.005
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 6
+    mutation_probability : 0.005
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 7
+    mutation_probability : 0.0
+- name: turn_on_mutation
+  info:
+  - day: 2011/01/01
+    drug_id : 8
+    mutation_probability : 0.005
 - name: 2011_strategy
   info:
   - day: 2011/01/01
-    strategy_id: 1
+    strategy_id: 0
 - name: 2015_strategy
   info:
   - day: 2015/01/01
-    strategy_id: 2
+    strategy_id: 1
 - name: 2018_strategy
   info:
   - day: 2018/01/01
-    strategy_id: 3
+    strategy_id: 2
+- name: turn_on_mutation
+  info:
+  - day: 2022/01/01
+    drug_id : 0
+    mutation_probability : 0.005
 - name: 2022_strategy
   info:
   - day: 2022/01/01
-    strategy_id: 4
+    strategy_id: 3
 - name: 2023_strategy
   info:
   - day: 2023/01/01
-    strategy_id: 5
+    strategy_id: 4
