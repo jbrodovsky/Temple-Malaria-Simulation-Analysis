@@ -149,6 +149,7 @@ def validate(country_code: str, repetitions: int = 50, output_dir: Path | str = 
     """
     country = CountryParams.load(name=country_code)
     logger = utils.get_country_logger(country_code, "validation")
+    logger.info(f"Starting validation for country: {country_code}")
     # Create validation configuration
     strategy_db = yaml.load((Path("conf") / country_code.lower() / "test" / "strategy_db.yaml").read_text())
     events = yaml.load((Path("conf") / country_code.lower() / "test" / "events.yaml").read_text())
@@ -169,19 +170,20 @@ def validate(country_code: str, repetitions: int = 50, output_dir: Path | str = 
     params["events"].extend(events)
     with open(Path("conf") / country_code.lower() / "test" / "validation_config.yaml", "w") as f:
         yaml.dump(params, f)
-
+    logger.info("Validation configuration file created.")
     _, cmds = commands.generate_commands(
         Path("conf") / country_code.lower() / "test" / "validation_config.yaml",
         Path(output_dir) / country_code.lower() / "validation",
         repetitions,
         True,
     )
-
+    logger.info(f"Generated {len(cmds)} validation commands to execute.")
     # Create output directory if it doesn't exist
     output_dir = os.path.join("output", country.country_code, "validation")
     os.makedirs(output_dir, exist_ok=True)
 
     # Execute commands using multiprocessing
+    logger.info("Starting validation runs...")
     max_workers = utils.get_optimal_worker_count()
     successful, failed = utils.multiprocess(cmds, max_workers, logger)
     logger.info(f"Validation runs completed: {successful} successful, {failed} failed.")
