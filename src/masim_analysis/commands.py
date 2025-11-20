@@ -355,10 +355,10 @@ def main():
 
     if args.command == "generate":
         filename, commands = generate_commands(
-            args.input_configuration_file,
+            args.configuration,
             args.output_directory,
             args.repetitions,
-            args.use_pixel_reporter,
+            args.reporter,
         )
         if args.name:
             filename = args.name
@@ -368,7 +368,7 @@ def main():
 
     elif args.command == "batch":
         commands = batch_generate_commands(
-            args.input_configuration_directory,
+            args.configuration,
             args.output_directory,
             args.repetitions,
         )
