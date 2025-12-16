@@ -23,14 +23,15 @@ Risks:
 - Git history will gradually bloat as rasters and input CSVs are revised.
 - Cloning the repo becomes increasingly heavy, even for users only
   interested in the analysis code.
-- Makes it hard to ship a light-weight, pip/conda-installable package.
+- Makes it hard to ship a light-weight, pip-installable package.
 
 Suggested path:
 - **Move heavy inputs to a dedicated data repository or storage bucket.**
-  - Option A: Private or public repo such as `Temple-MaSim-Data` containing
-    versioned `data/<country>` trees.
-  - Option B: Object storage (S3, GCS, campus-hosted HTTP/FTP) where
-    canonical rasters and CSVs are published.
+  - Dropbox is generally used in the lab, but largely from a web/file
+    sync perspective.
+  - Ideally, this should be directly linked to this repository, e.g. use some sort of API to fetch data on demand. I do not know if Dropbox supports this.
+  - Dropbox doesn't neccessarily support versioning of files, so consider using
+    a git-lfs backed repo or an S3-like bucket with versioned objects to store simulation inputs and artifacts.
 - **Keep only minimal test fixtures in this repo.**
   - Small (down-sampled) rasters and toy CSVs that allow tests and
     example notebooks to run quickly.
