@@ -1,8 +1,22 @@
-"""
-MaSim Configuration Generation.
+"""masim_analysis.configure
+=================================
 
-This module provides functions to generate input configuration YAML files for MaSim.
-It is used to create appropriate strategy input files and calibration files.
+Helpers to assemble MaSim input configuration dictionaries and write
+input rasters used by the calibration and scenario pipelines.
+
+This module contains:
+- constants and small in-repo databases (`GENOTYPE_INFO`, `DRUG_DB`, etc.)
+- utilities to validate and build a `raster_db` describing ASCII rasters used
+    by MaSim
+- `configure()` which returns a serializable dict that is written to YAML
+    and consumed by the `MaSim` runtime.
+
+Notes
+-----
+- Many of the large dictionaries in this module are expressive data tables
+    (drugs, genotypes, therapies) and are used directly when composing the
+    final configuration (`configure()` returns them under keys like
+    ``drug_db`` / ``genotype_info``).
 """
 
 import json
@@ -795,6 +809,24 @@ relative_bitting_info = RelativeBittingInfo()
 
 
 def create_spatial_model(calibration_mode: bool = False) -> dict:
+    """Return the spatial coupling model used by MaSim.
+
+    The repository uses a simple 'Wesolowski' gravity-style model. When
+    ``calibration_mode`` is True the returned parameters are chosen to be
+    suitable for calibration runs (smaller domain / simplified mobility).
+
+    Parameters
+    ----------
+    calibration_mode
+        If True, return parameters optimized for calibration (deterministic
+        or reduced mobility). If False, return the full production parameters.
+
+    Returns
+    -------
+    dict
+        Mapping with top-level key "name" and a nested parameter dictionary
+        used by the MaSim runtime (example shape shown in caller code).
+    """
     if calibration_mode:
         kappa = 0
         alpha = 0
@@ -817,8 +849,26 @@ def create_spatial_model(calibration_mode: bool = False) -> dict:
 
 
 def create_seasonal_model(enable: bool, country_code: str, period: int = 365) -> dict:
-    """
-    Create the seasonal model for the simulation.
+    """Create a seasonality configuration block for MaSim.
+
+    The function returns a dictionary describing how rainfall/seasonality data
+    should be read by MaSim. The CSV file referenced is expected at
+    ``data/<country_code>/<country_code>_seasonality.csv``.
+
+    Parameters
+    ----------
+    enable
+        Whether seasonality should be enabled.
+    country_code
+        Country code used to build the seasonality filename under ``data/``.
+    period
+        Period (in days) describing the seasonal cycle (default 365).
+
+    Returns
+    -------
+    dict
+        Seasonality configuration dictionary suitable for inclusion in the
+        full MaSim execution control configuration.
     """
     return {
         "enable": enable,
@@ -831,8 +881,20 @@ def create_seasonal_model(enable: bool, country_code: str, period: int = 365) ->
 
 
 def load_yaml(file_path: str) -> dict:
-    """
-    Load a YAML file and return the contents as a dictionary.
+    """Load a YAML file and return its contents as a native Python dict.
+
+    This utility wraps ``ruamel.yaml`` to read YAML files used for country
+    configuration (strategy dbs and test parameter files under ``conf/``).
+
+    Parameters
+    ----------
+    file_path
+        Path to the YAML file to read.
+
+    Returns
+    -------
+    dict
+        Parsed YAML data.
     """
     yaml = YAML()
     with open(file_path, "r") as file:
@@ -869,8 +931,40 @@ def create_raster_db(
     ],
     beta: float = -1.0,
 ) -> dict:
-    """
-    Validate the raster files for the simulation. Optionally, generate calibration raster files.
+    """Validate input raster files and construct the `raster_db` mapping.
+
+    The returned mapping contains the standard keys expected by MaSim's
+    execution control YAML such as:
+
+    - ``population_raster``: path to population ASCII raster
+    - ``district_raster``: path to administrative district ASCII raster
+    - ``pf_treatment_under5`` / ``pf_treatment_over5``: treatment-seeking rasters
+    - ``age_distribution_by_location``: per-location age structure
+
+    When ``calibration`` is True the function may write calibration-specific
+    versions of population/district rasters (appending ``calibration_string``
+    to filenames) so downstream calibration code can use multiple variants.
+
+    Parameters
+    ----------
+    name
+        Country or project name used to locate `conf/` and `data/` directories.
+    calibration
+        If True, create and return paths for calibration-specific raster files.
+    calibration_string
+        String appended to output raster filenames when calibration is enabled.
+    access_rate
+        Access rate override written into the raster_db entries.
+    age_distribution
+        Default per-location age distribution used when building the mapping.
+    beta
+        Optional beta override (used only for calibration outputs).
+
+    Returns
+    -------
+    dict
+        `raster_db` mapping consumed by `configure()` when composing the
+        execution control dictionary.
     """
     conf_root = os.path.join("conf", name)
     data_root = os.path.join("data", name)
@@ -926,8 +1020,39 @@ def configure(
     access_rate_override: float = -1.0,  # pass to validate
     calibration: bool = False,
 ) -> dict:
-    """
-    Create the configuration dictionary for the simulation. This function allows the user to set all the parameters in the .yml files used by MaSim.
+    """Assemble the full MaSim execution control dictionary.
+
+    The returned dictionary contains all keys required by the MaSim runtime
+    execution control YAML: demographic parameters, ``raster_db``, spatial and
+    seasonal models, parasite/drug databases, strategies and events.
+
+    Parameters
+    ----------
+    country_code
+        Country code used to build file references under ``data/`` and ``conf/``.
+    birth_rate
+        Annual birth rate used for demographic scaling.
+    initial_age_structure
+        Vector of initial per-age-class population counts.
+    age_distribution
+        Vector of per-age-class age distribution fractions.
+    death_rates
+        Per-age-class death rates.
+    starting_date, start_of_comparison_period, ending_date
+        `datetime.date` objects describing the simulation time window.
+    strategy_db
+        Intervention definitions placed into the configuration under
+        ``strategy_db`` (defaults to module-level ``STRATEGY_DB``).
+    calibration_str, beta_override, population_scalar, access_rate_override
+        Calibration related overrides that affect `raster_db` contents.
+    calibration
+        When True, generate a configuration optimized for calibration runs.
+
+    Returns
+    -------
+    dict
+        Fully populated execution control mapping ready to be serialized to
+        YAML and passed to `MaSim`.
     """
     if calibration:
         assert calibration_str is not None, "Calibration string must be provided for calibration mode."

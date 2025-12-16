@@ -1,27 +1,30 @@
-"""
-Commands module for Malaria Simulation Analysis (MaSimAnalysis).
+"""Command-generation utilities for MaSim calibration and batch runs.
 
-This module provides functions to generate shell commands various
-processes related to MaSim, including generating commands for
-running simulations, batch processing configuration files,
-and creating job files for cluster execution. These commands
-can be access from a few different ways:
+This module exposes helpers to generate shell commands that invoke the
+MaSim binary (`bin/MaSim`) across parameter sweeps and to build PBS job
+scripts for cluster submission. Typical workflow:
 
-1. Building and activating the virtual environment, then running
-   the commands directly from the command line.
-   Use scripts/server_build.bash
-   ```bash
-   scripts/server_build.bash
-   source .venv/bin/activate
-   commands generate ...
-   ```
+- Use `generate_commands` to create per-strategy command lists.
+- Use `batch_generate_commands` to collect commands for a directory of YAML
+    configuration files.
+- Use `generate_job_file` to convert a commands file into a PBS submission
+    script that runs commands in parallel while respecting a per-node slot
+    limit.
 
-2. Using `uv run` to execute the commands without activating
-   the virtual environment. However, this requires `uv` to be
-   installed on the system which it currently is not on the cluster.
-    ```bash
-    uv run commands generate ...
-    ```
+Examples
+--------
+Create commands for a single YAML and write them to a file::
+
+        filename, cmds = generate_commands('conf/moz/AL5.yml', 'output/moz', repetitions=5)
+        with open(filename, 'w') as fh:
+                fh.writelines(cmds)
+
+Create a PBS job wrapper for the generated commands::
+
+        generate_job_file(filename, node=Cluster.ONE, job_name='moz_cal', time_override=24)
+
+Note: the module assumes `bin/MaSim` exists and that MaSim produces `.db`
+files as outputs; it does not run or validate MaSim itself.
 """
 
 import argparse
@@ -60,22 +63,29 @@ def generate_commands(
     repetitions: int = 1,
     use_pixel_reporter: bool = True,
 ) -> tuple[str, list[str]]:
-    """
-    Generate commands for MaSim.
+    """Create MaSim command strings for one configuration file.
+
+    The function returns a filename (suggested local text file name) and a
+    list of shell command strings. Each command uses the pattern:
+
+    ``./bin/MaSim -i <input.yml> -o <output_prefix>_ -r <Reporter> -j <rep_index>``
 
     Parameters
     ----------
-    input_configuration_file : Path | str
-        The input configuration file path, ex: ./conf/rwa/AL5.yml.
-    output_directory : Path | str
-        The output directory to store simulation results, ex: ./output/rwa.
-    repetitions : int, optional
-        The number of repetitions, by default 1.
+    input_configuration_file
+        Path to a single MaSim YAML configuration file (e.g. in ``conf/<country>/``).
+    output_directory
+        Directory where MaSim `.db` outputs should be written.
+    repetitions
+        Number of independent repetitions to generate commands for.
+    use_pixel_reporter
+        If True use the `SQLitePixelReporter`, otherwise use
+        `SQLiteDistrictReporter`.
 
     Returns
     -------
     tuple[str, list[str]]
-        A tuple containing the commands filename and a list of generated commands.
+        Suggested commands filename (string) and a list of commands.
     """
     # Convert to Path objects for consistent handling
     input_path = Path(input_configuration_file)
@@ -107,22 +117,22 @@ def batch_generate_commands(
     output_directory: Path | str,
     repetitions: int = 1,
 ) -> list[str]:
-    """
-    Batch generate commands for MaSim.
+    """Discover YAML files under ``input_configuration_directory`` and
+    generate a flattened list of MaSim commands for all of them.
 
     Parameters
     ----------
-    input_configuration_directory : Path | str
-        The input configuration directory, ex: ./input/rwa.
-    output_directory : Path | str
-        The output directory, ex: ./output/rwa.
-    repetitions : int, optional
-        The number of repetitions, by default 1.
+    input_configuration_directory
+        Root directory containing one or more configuration ``.yml`` files.
+    output_directory
+        Where MaSim outputs should be written for each configuration.
+    repetitions
+        Number of repetitions per configuration.
 
     Returns
     -------
     list[str]
-        A list of all generated commands.
+        Flattened list of shell command strings.
     """
     # Convert to Path objects for consistent handling
     input_path = Path(input_configuration_directory)
@@ -150,32 +160,35 @@ def generate_job_file(
     std_error_location: Optional[Path | str] = Path("."),
     email: Optional[str] = None,
 ) -> None:
-    """
-    Generate a generic job file for submitting a list of commands to
-    execute on the cluster in parallel. The list of commands should
-    be contained in a text file with one command per line.
+    """Write a PBS job script that executes commands from a file in parallel.
+
+    The produced ``.pbs`` script will read the commands file line-by-line,
+    launching commands as background jobs while ensuring the number of
+    concurrent jobs does not exceed the requested ``cores_requested``.
 
     Parameters
     ----------
-    commands_filename : str
-        The file path and name of the file containing the shell commands to execute.
-    node : Cluster, optional
-        The cluster node to use, by default Cluster.ONE (nd01).
-    job_name : str, optional
-        The name of the job, by default "MyJob".
-    cores_override : Optional[int], optional
-        Override the number of cores per node, by default None which
-        the usage to maximum.
-    time_override : Optional[int], optional
-        Override the wall time in hours, by default 48.
-    std_output_location : Optional[Path | str], optional
-        Standard output file location, by default None, which sets the
-        output location to '.' and thus writes to ./<job_name>.output.
-    std_error_location : Optional[Path | str], optional
-        Standard error file location, by default None, which sets the
-        error location to '.' and thus writes to ./<job_name>.error.
-    email : Optional[str], optional
-        Email address for job notifications, by default None.
+    commands_filename
+        Path to a newline-delimited file containing shell commands to run.
+    node
+        Which cluster host to request (values defined in the ``Cluster`` Enum).
+    job_name
+        Base job name used for PBS metadata and for per-command stdout/stderr
+        files produced by the job wrapper.
+    cores_override
+        Optional hint for how many concurrent jobs to allow; if omitted the
+        local CPU count is used.
+    time_override
+        Walltime in hours requested for the PBS job.
+    std_output_location, std_error_location
+        Directories where per-task stdout/stderr files are written.
+    email
+        Optional email for PBS job events.
+
+    Side effects
+    ------------
+    - Writes ``{job_name}.pbs`` in the current working directory.
+    - Prints instructions to submit the produced script with ``qsub``.
     """
     # Generate the job file
     job_filename = f"{job_name}.pbs"
@@ -234,18 +247,21 @@ def generate_job_file(
 
 
 def setup_directories(country_code: str) -> None:
-    """
-    Set up a new country model for the simulation and the accompanying folder structure.
-    Creates the following directories if they do not already exist:
-    - conf/{country_code}
-    - data/{country_code}
-    - images/{country_code}
-    - log/{country_code}
-    - output/{country_code}
+    """Create the standard per-country directory layout used by workflows.
 
-    # Arguments
-    - country_code: str
-        The country code for the new model, e.g., "rwa" for Rwanda.
+    The function creates the following directories under the repository root
+    (if they do not already exist):
+
+    - ``conf/{country_code}``
+    - ``data/{country_code}``
+    - ``images/{country_code}``
+    - ``log/{country_code}``
+    - ``output/{country_code}`` (and subfolders ``calibration`` and ``validation``)
+
+    Parameters
+    ----------
+    country_code
+        Short country code used to name the directories (e.g. ``'moz'``).
     """
     os.makedirs(f"./conf/{country_code}", exist_ok=True)
     os.makedirs(f"./data/{country_code}", exist_ok=True)
