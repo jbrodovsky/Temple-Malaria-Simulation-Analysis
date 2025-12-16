@@ -1,8 +1,21 @@
-"""
-Analysis tools for MaSim outputs.
+"""masim_analysis.analysis
+=================================
 
-This module provides functions for interacting with MaSim simulation output
-databases, performing data analysis, and generating plots.
+Utilities for reading MaSim SQLite output files, aggregating simulation
+results across runs, computing genome frequencies and treatment-failure
+statistics, and producing commonly-used diagnostic plots.
+
+This module centralizes the code used by the calibration workflow to extract
+tables from MaSim ``.db`` files (see `get_table` / `get_all_tables`), compute
+aggregates across many runs (e.g. `aggregate_failure_rates`), and produce
+figures used to validate calibration fits.
+
+Notes
+-----
+- Many functions expect MaSim's schema and table names (``monthlysitedata``,
+    ``monthlygenomedata``, ``genotype``) to be present in the `.db` files.
+- Outputs from MaSim often express PfPR values as percentages; callers that
+    consume PfPR should convert to fractions when necessary.
 """
 
 from pathlib import Path
@@ -26,18 +39,22 @@ table_names = [
 
 # Database tools -----------------------------------------------------------------------------
 def get_all_tables(db: Path | str) -> list:
-    """
-    Get all tables in a sqlite3 database.
+    """Return a list of table names in a SQLite database.
 
     Parameters
     ----------
-    db : str or Path
-        Path to sqlite3 database.
+    db
+        Path to a SQLite database file produced by MaSim.
 
     Returns
     -------
     list
-        List of tables in the database.
+        List of table name strings present in the database.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the provided path does not exist.
     """
     # Validate input file path
     db_path = Path(db)
@@ -52,20 +69,26 @@ def get_all_tables(db: Path | str) -> list:
 
 
 def get_table(db: Path | str, table: str) -> pd.DataFrame:
-    """
-    Get a table from a sqlite3 database.
+    """Read a table from a MaSim SQLite database into a DataFrame.
 
     Parameters
     ----------
-    db : str or Path
-        Path to sqlite3 database.
-    table : str
-        Name of table to get.
+    db
+        Path to the `.db` file.
+    table
+        Table name to read (e.g. ``monthlysitedata``, ``genotype``).
 
     Returns
     -------
-    pd.DataFrame
-        Table as a pandas DataFrame.
+    pandas.DataFrame
+        Contents of the requested table.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the database file does not exist.
+    ValueError
+        If the requested table is not present in the database.
     """
     # Validate input file path
     db_path = Path(db)
@@ -79,18 +102,22 @@ def get_table(db: Path | str, table: str) -> pd.DataFrame:
 
 # Data analysis tools -----------------------------------------------------------------------
 def calculate_treatment_failure_rate(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate treatment failures for a given table.
+    """Compute per-row treatment failure rate and append as ``failure_rate``.
+
+    The function expects columns ``treatmentfailures`` and ``treatments`` to
+    be present in ``data`` and returns the same DataFrame with a new column
+    ``failure_rate`` equal to ``treatmentfailures / treatments``.
 
     Parameters
     ----------
-    data : pd.DataFrame
-        monthlysitedata table to calculate treatment failures.
+    data
+        DataFrame (typically a ``monthlysitedata`` table) containing
+        ``treatmentfailures`` and ``treatments`` columns.
 
     Returns
     -------
-    pd.DataFrame
-        Table with treatment failures.
+    pandas.DataFrame
+        The original DataFrame with an added ``failure_rate`` column.
     """
     # Calculate treatment failures
     data["failure_rate"] = data["treatmentfailures"] / data["treatments"]
@@ -98,23 +125,27 @@ def calculate_treatment_failure_rate(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_failure_rates(path: Path | str, strategy: str, locationid: int = 0) -> pd.DataFrame:
-    """
-    Aggregate failure rate data by strategy. This function searches path for all the result
-    files for the given strategy and aggregates them.
+    """Aggregate treatment-failure statistics across multiple runs.
+
+    This function searches ``path`` for files matching ``{strategy}_*.db``,
+    computes per-file failure rates (via ``calculate_treatment_failure_rate``),
+    and returns a DataFrame containing aggregated statistics (mean, median,
+    percentiles) across runs.
 
     Parameters
     ----------
-    path : str or Path
-        Path to search for result files.
-    strategy : str
-        Strategy to aggregate data for.
-    locationid : int, optional
-        locationid to filter by, defaults to 0 which returns all locations.
+    path
+        Directory containing MaSim `.db` result files.
+    strategy
+        Strategy name prefix used in filenames (e.g. ``baseline``).
+    locationid
+        If > 0, filter results to a single location id; default 0 keeps all.
 
     Returns
     -------
-    pd.DataFrame
-        Aggregated data.
+    pandas.DataFrame
+        Aggregated series indexed by time (monthlydataid) containing
+        summary columns such as ``mean``, ``median``, ``5th``, ``95th``.
     """
     # Get all files for the strategy
     files = list(Path(path).glob(f"{strategy}_*.db"))
@@ -149,19 +180,18 @@ def save_aggregated_data(
     strategy: str,
     path: Path | str,
 ):
-    """
-    Save aggregated data to a file.
+    """Persist aggregated monthlysitedata into a new SQLite file.
 
     Parameters
     ----------
-    monthlysitedata : dict[str, pd.DataFrame]
-        Aggregated data.
-    monthlydataid : pd.Series
-        monthlydataid column.
-    strategy : str
-        Strategy name.
-    path : str or Path
-        Path to save the file.
+    monthlysitedata
+        Mapping of run id -> DataFrame (aggregated monthly site data).
+    monthlydataid
+        Series or index corresponding to monthly time steps.
+    strategy
+        Strategy name used to name the output file: ``{strategy}_aggregated.db``.
+    path
+        Directory where the aggregated DB will be written.
     """
     db_path = Path(path) / f"{strategy}_aggregated.db"
     with sqlite3.connect(str(db_path)) as conn:
@@ -173,22 +203,22 @@ def save_aggregated_data(
 
 
 def plot_strategy_treatment_failure(data: pd.DataFrame, strategy: str, figsize: tuple = (18, 3)):
-    """
-    Plot treatment failure rate for a given strategy.
+    """Plot aggregated treatment failure percentiles and median for a strategy.
 
     Parameters
     ----------
-    data : pd.DataFrame
-        Treatment failure data to plot from aggregate_failure_rates.
-    strategy : str
-        Strategy to plot.
-    figsize : tuple, optional
-        Figure size, by default (18, 3).
+    data
+        DataFrame returned from ``aggregate_failure_rates`` indexed by
+        ``monthlydataid`` and containing ``median``, ``5th`` and ``95th``.
+    strategy
+        Strategy name used in plot title.
+    figsize
+        Matplotlib figure size tuple.
 
     Returns
     -------
-    tuple
-        A tuple containing the matplotlib Figure and Axes objects.
+    matplotlib.figure.Figure
+        The created Figure object.
     """
     fig, ax = plt.subplots(figsize=figsize)
     # ax.plot(months / 12, data['failure_rate']['mean'], label='Mean')
@@ -210,20 +240,20 @@ def plot_strategy_treatment_failure(data: pd.DataFrame, strategy: str, figsize: 
 
 
 def get_population_data(file: Path | str, month: int = -1) -> pd.DataFrame:
-    """
-    Get population data from a MaSim output database.
+    """Extract population-related columns from a MaSim `.db` file.
 
     Parameters
     ----------
-    file : str or Path
-        Path to the MaSim output database (.db file).
-    month : int, optional
-        Month to get data for. Defaults to -1 (all months).
+    file
+        Path to a MaSim SQLite output `.db`.
+    month
+        If > 0, restrict to a single monthlydataid; default -1 returns all rows.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame containing population data.
+    pandas.DataFrame
+        Indexed by ``locationid`` with columns ``population`` and
+        ``infectedindividuals`` for the requested month(s).
     """
     # Assert the file exists
     file_path = Path(file)
@@ -241,20 +271,20 @@ def get_population_data(file: Path | str, month: int = -1) -> pd.DataFrame:
 
 
 def get_genome_data(file: Path | str, month: int = -1) -> pd.DataFrame:
-    """
-    Get genome data from a MaSim output database.
+    """Return per-location genome occurrence/weighted occurrence table.
 
     Parameters
     ----------
-    file : str or Path
-        Path to the MaSim output database (.db file).
-    month : int, optional
-        Month to get data for. Defaults to -1 (all months).
+    file
+        Path to MaSim `.db` file.
+    month
+        If > 0, restrict to a single monthlydataid; default -1 returns all rows.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame containing genome data.
+    pandas.DataFrame
+        Indexed by ``locationid`` with columns like ``genomeid``,
+        ``occurrences`` and ``weightedoccurrences``.
     """
     # Assert the file exists
     file_path = Path(file)
@@ -275,20 +305,24 @@ def get_genome_data(file: Path | str, month: int = -1) -> pd.DataFrame:
 
 
 def calculate_genome_frequencies(file: Path | str, month: int = -1) -> pd.DataFrame:
-    """
-    Calculate genome frequencies from a MaSim output database.
+    """Compute genome frequencies (per genotype) normalized by infected count.
+
+    The function merges per-location genome occurrence data with the
+    ``monthlysitedata`` to compute frequencies as
+    ``weightedoccurrences / infectedindividuals``.
 
     Parameters
     ----------
-    file : str or Path
-        Path to the MaSim output database (.db file).
-    month : int, optional
-        Month to get data for. Defaults to -1 (all months).
+    file
+        Path to a MaSim `.db` file.
+    month
+        If > 0, restrict to that monthly snapshot; default -1 uses all.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame containing genome frequencies.
+    pandas.DataFrame
+        DataFrame indexed by location with columns for each genome id and a
+        final row `'totals'` containing the column sums.
     """
     # Assert the file exists
     file_path = Path(file)
@@ -313,20 +347,19 @@ def calculate_genome_frequencies(file: Path | str, month: int = -1) -> pd.DataFr
 
 
 def get_resistant_genotypes(genomes: pd.DataFrame, allele: str) -> pd.DataFrame:
-    """
-    Filter resistant genotypes from a DataFrame of genome data.
+    """Return subset of genome DataFrame whose name contains ``allele``.
 
     Parameters
     ----------
-    genomes : pd.DataFrame
-        DataFrame containing genome data (typically from get_genome_data).
-    allele : str
-        Allele to consider for resistance.
+    genomes
+        DataFrame with a textual ``name`` column describing genotype alleles.
+    allele
+        Substring to match (e.g. ``'H'``) used to select resistant genotypes.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame containing only resistant genotypes.
+    pandas.DataFrame
+        Subset of ``genomes`` containing only rows that match the allele.
     """
     resistant_genotypes = genomes.loc[genomes["name"].str.contains(allele)]
     return resistant_genotypes
@@ -335,24 +368,28 @@ def get_resistant_genotypes(genomes: pd.DataFrame, allele: str) -> pd.DataFrame:
 def calculate_resistant_genome_frequencies(
     file: Path | str, allele: str, month: int = 0, locationid: int = -1
 ) -> pd.DataFrame:
-    """
-    Calculate resistant genome frequencies from a MaSim output database.
+    """Compute per-sample frequencies for genomes containing a resistant allele.
+
+    The function computes the fraction of weighted occurrences for genomes
+    matching ``allele`` divided by infected individuals at each location and
+    time point, optionally filtering to a single month or location.
 
     Parameters
     ----------
-    file : str or Path
-        Path to the MaSim output database (.db file).
-    allele : str
-        Allele to consider for resistance.
-    month : int, optional
-        Month to get data for. Defaults to 0 (first month).
-    locationid : int, optional
-        Location ID to filter by. Defaults to -1 (all locations).
+    file
+        MaSim `.db` file path.
+    allele
+        Allele substring used to select resistant genotypes (e.g. ``'H'``).
+    month
+        Month to restrict to: ``0`` uses the first month, ``-1`` means all.
+    locationid
+        If > 0, filter results to a single location id.
 
     Returns
     -------
-    pd.DataFrame
-        DataFrame containing resistant genome frequencies.
+    pandas.DataFrame
+        Long-format DataFrame with columns including ``monthlydataid``,
+        ``locationid``, ``frequency`` (fraction of resistant genomes).
     """
     # Assert the file exists
     file_path = Path(file)
@@ -393,26 +430,28 @@ def calculate_resistant_genome_frequencies(
 def aggregate_resistant_genome_frequencies(
     path: Path | str, strategy: str, allele: str = "H", month: int = -1, locationid: int = -1
 ) -> list:
-    """
-    Aggregate resistant genome frequencies across multiple simulation runs for a strategy.
+    """Collect resistant-genome frequency DataFrames from multiple runs.
+
+    For each `.db` file matching ``{strategy}_*.db`` in ``path`` the function
+    computes resistant genome frequencies (via
+    ``calculate_resistant_genome_frequencies``) and returns the list of per-run
+    DataFrames for downstream aggregation/plotting.
 
     Parameters
     ----------
-    path : str or Path
-        Path to search for result files.
-    strategy : str
-        Strategy to aggregate data for.
-    allele : str, optional
-        Allele to consider for resistance, by default "H".
-    month : int, optional
-        Month to get data for. Defaults to -1 (all months).
-    locationid : int, optional
-        Location ID to filter by. Defaults to -1 (all locations).
+    path
+        Directory containing run `.db` files.
+    strategy
+        Filename prefix for runs to include.
+    allele
+        Allele substring to match for resistance.
+    month, locationid
+        Optional filters forwarded to the per-file calculation function.
 
     Returns
     -------
-    list
-        List of DataFrames, each containing resistant genome frequencies for a run.
+    list[pandas.DataFrame]
+        One DataFrame per run containing resistant genome frequency rows.
     """
     # Get all files for the strategy
     files = list(Path(path).glob(f"{strategy}_*.db"))
@@ -453,24 +492,10 @@ def aggregate_resistant_genome_frequencies(
 def aggregate_resistant_genome_frequencies_by_month(
     path: Path | str, strategy: str, allele: str = "H", locationid: int = -1
 ) -> pd.DataFrame:
-    """
-    Aggregate resistant genome frequencies by month across multiple simulation runs.
+    """Aggregate resistant-genome frequencies across runs into monthly summaries.
 
-    Parameters
-    ----------
-    path : str or Path
-        Path to search for result files.
-    strategy : str
-        Strategy to aggregate data for.
-    allele : str, optional
-        Allele to consider for resistance, by default "H".
-    locationid : int, optional
-        Location ID to filter by. Defaults to -1 (all locations).
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing aggregated resistant genome frequencies by month.
+    Returns a DataFrame indexed by monthlydataid containing summary columns
+    such as ``mean``, ``median``, ``5th`` and ``95th`` percentiles.
     """
     files = list(Path(path).glob(f"{strategy}_*.db"))
     if len(files) == 0:
@@ -494,22 +519,11 @@ def aggregate_resistant_genome_frequencies_by_month(
 
 
 def plot_strategy_results(path: Path | str, strategy: str, locationid: int = 0) -> Figure:
-    """
-    Plot aggregated results for a given strategy.
+    """Produce a simple matplotlib Figure visualizing strategy-level summaries.
 
-    Parameters
-    ----------
-    path : str or Path
-        Path to search for result files.
-    strategy : str
-        Strategy to plot results for.
-    locationid : int, optional
-        Location ID to filter by, by default 0 (all locations).
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The matplotlib Figure object containing the plot.
+    This helper reads aggregated files for ``strategy`` in ``path`` and
+    returns a `Figure` object. It is intentionally lightweight and used by
+    notebooks and quick diagnostics.
     """
     # Assert that the location is valid
     if locationid < 0:
@@ -548,19 +562,10 @@ def plot_strategy_results(path: Path | str, strategy: str, locationid: int = 0) 
 
 
 def plot_combined_strategy_aggragated_results(path: Path | str, strategy: str, allele: str = "H", locationid: int = -1):
-    """
-    Plot combined aggregated results for a strategy, including treatment failure and resistant genome frequencies.
+    """Create a combined plot of resistant genotype frequency and failures.
 
-    Parameters
-    ----------
-    path : str or Path
-        Path to search for result files.
-    strategy : str
-        Strategy to plot results for.
-    allele : str, optional
-        Allele to consider for resistance in genome frequency plots, by default "H".
-    locationid : int, optional
-        Location ID to filter by. Defaults to -1 (all locations).
+    Returns a `Figure` that overlays genome-frequency summaries and treatment
+    failure percentiles to facilitate strategy comparisons.
     """
     # Assert that the location is valid
     if locationid < 0:
@@ -620,18 +625,21 @@ def plot_combined_strategy_aggragated_results(path: Path | str, strategy: str, a
 def get_average_summary_statistics(
     path: Path | str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Get average summary statistics across all .db files in a given directory.
+    """Compute average time-series DataFrames across all `.db` files in a folder.
+
+    The function returns six DataFrames used by calibration routines:
+    ``ave_population``, ``ave_cases``, ``ave_prevalence_2_to_10``,
+    ``ave_cases_2_to_10``, ``ave_prevalence_under_5``, ``ave_cases_under_5``.
 
     Parameters
     ----------
-    path : str or Path
-        Path to the directory containing .db files.
+    path
+        Directory containing MaSim `.db` run outputs.
 
     Returns
     -------
     tuple
-        A tuple containing DataFrames for average population, total clinical episodes, etc.
+        Six DataFrames as described above.
     """
     path_obj = Path(path)
     if not path_obj.exists() or not path_obj.is_dir():
@@ -755,27 +763,23 @@ def plot_prevalence_trend(
     population_plot_scalar: float = 100.0,
     upper_limit: float = 0.6,
 ) -> Figure:
-    """
-    Plot prevalence trend from observed data.
+    """Scatter observed vs simulated prevalence with population-weighted markers.
 
     Parameters
     ----------
-    observed : NDArray or list of float
-        Observed prevalence data.
-
-    simulated : NDArray or list of float
-        Simulated prevalence data.
-
-    populations : NDArray or list of float, optional
-        Population data for weighting, by default None.
-
-    age_str : str, optional
-        Age group string for title, by default None.
+    observed
+        1-D array-like of observed PfPR values (fractions).
+    simulated
+        1-D array-like of simulated PfPR values computed by models.
+    populations
+        Optional population weights used to scale marker sizes in the plot.
+    age_str
+        Optional string used in the plot title (e.g. "2-10" or "under5").
 
     Returns
     -------
     matplotlib.figure.Figure
-        The matplotlib Figure object containing the plot.
+        Scatter plot Figure comparing observed and simulated prevalence.
     """
     fig, ax = plt.subplots(figsize=(12, 12))
     if populations is None:

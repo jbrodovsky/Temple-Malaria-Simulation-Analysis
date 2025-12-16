@@ -1,5 +1,20 @@
-"""
-Validation scripting and testing tools for MaSim analysis.
+"""Validation utilities for MaSim outputs and post-processing.
+
+This module contains helpers used to validate MaSim calibration and
+scenario outputs. It provides functions to aggregate validation runs,
+compare predicted vs observed prevalence, run post-processing steps that
+produce CSV summaries and diagnostic plots, and a CLI entrypoint
+``validate`` for running the full validation pipeline for a country.
+
+Typical usage::
+
+        python src/masim_analysis/validate.py MOZ -r 10
+
+Notes
+-----
+- Functions in this module assume the standard directory layout used by
+    the repository (``data/<country>``, ``conf/<country>``, ``output/<country>``)
+    and the presence of MaSim `.db` outputs under ``output/<country>/validation``.
 """
 
 import argparse
@@ -24,6 +39,24 @@ yaml = YAML()
 def _averaging_pass(
     country: CountryParams,
 ) -> tuple[DataFrame, DataFrame, DataFrame, DataFrame, DataFrame, DataFrame]:
+    """Run averaging over validation `.db` outputs and write CSV summaries.
+
+    This helper calls ``analysis.get_average_summary_statistics`` on the
+    validation output folder for ``country`` and persists the resulting
+    averaged DataFrames into ``output/<country>/validation/`` as CSV files.
+
+    Parameters
+    ----------
+    country
+        Loaded ``CountryParams`` instance identifying the country and paths.
+
+    Returns
+    -------
+    tuple[pandas.DataFrame, ...]
+        Tuple of six DataFrames:
+        ``(ave_population, ave_cases, ave_prevalence_2_to_10, ave_cases_2_to_10,``
+        ``ave_prevalence_under_5, ave_cases_under_5)``.
+    """
     (
         ave_population,
         ave_cases,
@@ -56,6 +89,33 @@ def _prevelance_comparison(
     mean_prevalence_under_5: DataFrame,
     mean_population: DataFrame,
 ):
+    """Prepare observed vs. predicted prevalence comparison table.
+
+    The function extracts the final-year average case counts and merges the
+    observed prevalence raster (``data/<country>_pfpr210.asc``) with the
+    predicted prevalence summaries passed in ``mean_prevalence_2_to_10`` and
+    ``mean_prevalence_under_5``. Predicted prevalence values are expected as
+    percentages and are converted to fractions where appropriate.
+
+    Parameters
+    ----------
+    country
+        Loaded ``CountryParams`` instance.
+    ave_cases
+        Averaged monthlysitedata DataFrame produced by the averaging pass.
+    mean_prevalence_2_to_10
+        DataFrame of mean PfPR (2-10) per location (percent values).
+    mean_prevalence_under_5
+        DataFrame of mean PfPR (under-5) per location (percent values).
+    mean_population
+        DataFrame with mean population per location.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A merged DataFrame containing observed prevalence ('obs'), predicted
+        prevalence ('mean_2_to_10', 'mean_under_5') and population columns.
+    """
     ave_cases = ave_cases.drop(columns="clinicalepisodes")
     months = ave_cases["monthlydataid"].unique()
     ending_month = months[-13]
@@ -85,6 +145,22 @@ def _prevelance_comparison(
 
 
 def post_process(country: CountryParams, params: dict, logger: logging.Logger | None = None):
+    """Run validation post-processing: averaging, comparisons and plots.
+
+    This routine runs the averaging pass over validation run outputs,
+    computes last-year summary statistics, writes CSVs and saves diagnostic
+    prevalence fit plots to ``images/<country>``.
+
+    Parameters
+    ----------
+    country
+        Loaded ``CountryParams`` instance.
+    params
+        Execution control dictionary used when running MaSim (contains
+        scaling factors used in log messages).
+    logger
+        Optional logger; if not provided a per-country logger is created.
+    """
     if logger is None:
         logger = utils.get_country_logger(country.country_code, "validation")
 
@@ -142,6 +218,27 @@ def validate(country_code: str, repetitions: int = 50, output_dir: Path | str = 
         Number of repetitions per parameter combination, by default 50.
     output_dir : Path | str, optional
         Directory to store output files, by default Path("output").
+
+    Returns
+    -------
+    None
+    """
+    """Run the full validation pipeline for a country.
+
+    This function prepares a validation configuration (writing
+    ``conf/<country>/test/validation_config.yaml``), generates MaSim command
+    strings, executes them (via ``utils.multiprocess``) and runs
+    post-processing to produce CSV summaries and plots.
+
+    Parameters
+    ----------
+    country_code
+        Country code string (case-insensitive) used to locate ``conf/`` and
+        ``data/`` directories.
+    repetitions
+        Number of repetitions per parameter set to generate and run.
+    output_dir
+        Base output directory where MaSim `.db` files will be created.
 
     Returns
     -------

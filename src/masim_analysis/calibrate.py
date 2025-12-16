@@ -1,9 +1,24 @@
-"""
-Calibration scripts for MaSim.
+"""masim_analysis.calibrate
+=================================
 
-This module provides functions for generating MaSim configurations for calibration,
-running calibration simulations, summarizing results, and fitting models (e.g., sigmoid)
-to calibration data.
+Utilities to prepare, run and analyze MaSim calibration experiments.
+
+This module contains routines to:
+- generate MaSim configuration files and per-pixel inputs,
+- assemble and run calibration command batches (via `bin/MaSim`),
+- summarize `.db` outputs into calibration means, and
+- fit/infer `beta` (transmission) using log-sigmoid and linear models.
+
+Relevant locations in the repo:
+- `scripts/generate_input_files.sh` — how templates are expanded into inputs.
+- `bin/MaSim` — external model binary invoked by generated commands.
+- `data/<country>/` and `conf/<country>/` — runtime inputs and configuration.
+- `src/masim_analysis/calibrate.py` — this file: calibration orchestration and fitting.
+
+Docstring conventions:
+- All prevalence (pfpr) values coming from MaSim summaries are represented as
+    percentages in raw output and are converted to fractions (divide by 100)
+    before being passed to numerical fits elsewhere in the code.
 """
 
 # Country calibration script
@@ -55,35 +70,44 @@ def generate_configuration_files(
     # events: Optional[list[dict]] = None,
     logger: Optional[logging.Logger] = None,
 ) -> None:
-    """
-    Generate MaSim configuration files for a given country and calibration parameters.
+    """Create per-run MaSim YAML configuration files used by the calibration batch.
+
+    This function produces the set of MaSim configuration files placed under
+    `conf/<country_code>/calibration/` (pixel-level inputs, execution control,
+    and a `strategy_db` if provided). The generated files are consumed by
+    `batch_generate_commands` to assemble command-line invocations of `MaSim`.
 
     Parameters
     ----------
-    country_code : str
-        The country code (e.g., "RWA", "MOZ").
-    calibration_year : int
-        The year for which calibration is being performed.
-    population_bins : list[int]
-        List of population bins for calibration.
-    access_rates : list[float]
-        List of treatment access rates for calibration.
-    beta_values : list[float]
-        List of beta values (transmission intensity) for calibration.
-    birth_rate : float
-        The birth rate for the simulation.
-    death_rate : list[float]
-        List representing the age-specific death rates.
-    initial_age_structure : list[int]
-        List representing the initial age structure of the population.
-    age_distribution : list[float]
-        List representing the age distribution for certain outputs/calculations.
-    seasonality_file_name : str, optional
-        Name of the seasonality file, by default "seasonality".
-    strategy_db : dict[int, dict[str, str | list[int]]], optional
-        Database of intervention strategies, by default configure.STRATEGY_DB.
-    events : Optional[list[dict]], optional
-        List of scheduled events for the simulation, by default None.
+    country_code
+        ISO or project country code (e.g. ``'UGA'``) used to locate data and
+        configuration directories under `data/` and `conf/`.
+    calibration_year
+        Year used to set the comparison window for calibration (the code uses
+        an 11‑year lookback + comparison year windows when generating dates).
+    access_rates
+        Sorted list of unique treatment access rates (floats) derived from the
+        treatment-seeking raster. Each access rate will have configurations
+        generated for all population bins defined in ``POPULATION_BINS``.
+    birth_rate
+        Annual birth rate used to seed MaSim demographic inputs.
+    death_rate
+        Age-specific death rate vector used in configuration generation.
+    initial_age_structure
+        Initial age-structure counts used to create per-pixel population files.
+    age_distribution
+        Age distribution (fractions) used for certain demographic outputs.
+    strategy_db
+        Optional interventions/strategy definitions (loaded from
+        `conf/<country>/test/strategy_db.yaml` by callers).
+    logger
+        Optional `logging.Logger` for informational messages.
+
+    Notes
+    -----
+    - This function does not run MaSim; it only writes configuration files.
+    - Caller is expected to call `batch_generate_commands` after config files
+      are present to produce `MaSim` invocation strings.
     """
     # configure calibration dates
     comparison = date(calibration_year, 1, 1)
@@ -122,15 +146,21 @@ def generate_configuration_files(
 
 
 def write_pixel_data_files(raster_db: dict, population: int):
-    """
-    Write pixel data files based on raster database and population.
+    """Write per-pixel ASCII files required by MaSim for a single population.
+
+    The function expects ``raster_db`` to contain keys such as
+    ``population_raster`` and ``district_raster`` pointing to output paths or
+    templates. It writes the per-pixel population and district ASCII files used
+    by MaSim when running a pixelized calibration experiment.
 
     Parameters
     ----------
-    raster_db : dict
-        A dictionary containing raster data or paths to raster files.
-    population : int
-        The population value to use in generating pixel data.
+    raster_db
+        Mapping that must include the output paths for the population and
+        district raster files (keys used in callers).
+    population
+        Population value (one of ``POPULATION_BINS``) used to populate the
+        generated ASCII pixel file contents.
     """
     with open(raster_db["population_raster"], "w") as file:
         file.write(
@@ -143,8 +173,32 @@ def write_pixel_data_files(raster_db: dict, population: int):
 def generate_calibration_commands(
     country: CountryParams, access_rates: list[float], repetitions: int = 20, output_directory: Path = Path("output")
 ) -> list[str]:
-    """
-    Generate the list of calibration commands
+    """Generate shell command strings to run calibration simulations.
+
+    The returned list contains the command lines that invoke the `MaSim`
+    binary for all combinations of population bins, access rates and beta
+    values. Commands are created by `batch_generate_commands` from the
+    `conf/<country>/calibration` directory into the `output/<country>/calibration`
+    directory and are ready to be executed (for example with
+    ``utils.multiprocess``).
+
+    Parameters
+    ----------
+    country
+        Loaded `CountryParams` object providing country metadata (paths,
+        birth/death rates, start_of_comparison_period, etc.).
+    access_rates
+        Sorted list of unique treatment access rates to generate commands for.
+    repetitions
+        Number of repetitions to request per parameter set (default 20).
+    output_directory
+        Base output directory where MaSim results will be written.
+
+    Returns
+    -------
+    list[str]
+        Command strings ready to be executed to produce `.db` outputs under
+        `output/<country>/calibration/`.
     """
     strategy_db = yaml.load(open(os.path.join("conf", country.country_code, "test", "strategy_db.yaml"), "r"))
 
@@ -174,26 +228,30 @@ def check_missing_runs(
     output_dir: Path | str,
     repetitions: int = 20,
 ) -> list[str]:
-    """
-    Identify and potentially re-process missing jobs from a calibration run.
+    """Check `output/<country>/calibration` for missing MaSim result files.
 
-    This function checks for expected output files and may trigger reruns
-    or report missing data.
+    The function inspects the expected file naming pattern
+    ``cal_<pop>_<access>_<beta>_monthly_data_<iteration>.db`` for all
+    ``POPULATION_BINS`` x ``access_rates`` x ``BETAS`` x ``repetitions`` and
+    returns a list of command strings to re-run for any missing files.
 
     Parameters
     ----------
-    country_code : str
-        The country code.
-    population_bins : list[int]
-        Population bins used in calibration.
-    access_rates : list[float]
-        Access rates used in calibration.
-    beta_values : list[float]
-        Beta values used in calibration.
-    output_dir : str
-        Directory containing the MaSim output files.
-    repetitions : int, optional
-        Number of repetitions expected for each parameter set, by default 20.
+    country_code
+        Country code used to construct the output folder path.
+    access_rates
+        Treatment access rates (floats) expected in the outputs.
+    output_dir
+        Base output directory (usually ``output``) containing per-country
+        `calibration/` folders.
+    repetitions
+        Number of repetitions that should exist for each parameter set.
+
+    Returns
+    -------
+    list[str]
+        List of commands (as strings) that the caller can pass to
+        ``utils.multiprocess`` to attempt reruns for missing outputs.
     """
     base_file_path = os.path.join(output_dir, country_code, "calibration")
     missing_cmds: list[str] = []
@@ -323,27 +381,31 @@ def inverse_sigmoid(y, a, b, c):
 def fit_log_sigmoid_model(
     betas: ArrayLike, pfpr: ArrayLike, pfpr_cutoff: float = 0.0, logger: Optional[logging.Logger] = None
 ) -> NDArray[np.float64]:
-    """
-    Fit sigmoid models to calibration data for different populations and treatment access rates.
+    """Fit a log-sigmoid mapping from Beta -> PfPR and return fitted params.
 
-    This function performs a log-sigmoid regression on the calibration data,
-    fitting a model to the relationship between log-transformed Beta values
-    and PfPR (Plasmodium falciparum parasite rate) for each combination of
-    population and treatment access rate.
+    The function fits a sigmoid model of the form ``y = a / (1 + exp(-b*(x-c)))``
+    where ``x`` is ``log10(beta)`` and ``y`` is ``pfpr`` (fraction, not
+    percent). If the supplied data have only a few points below ``pfpr_cutoff``,
+    the implementation may fallback to a linear fit (handled by callers).
 
     Parameters
     ----------
-    populations : list[int] | np.typing.NDArray
-        List of unique population values for which to fit the model.
-    treatment_rate : list[float] | np.typing.NDArray
-        List of unique treatment access rates for which to fit the model.
+    betas
+        1-D arraylike of Beta values (transmission parameter) used as the
+        independent variable. Values are expected > 0 and will be log10-transformed.
+    pfpr
+        1-D arraylike of PfPR values (fractions 0..1) corresponding to ``betas``.
+    pfpr_cutoff
+        PfPR threshold used to select a subset of points for the fit. Default 0.0.
+    logger
+        Optional logger used to record warnings or fit diagnostics.
 
     Returns
     -------
-    dict[float, dict[int, typing.Any]]
-        A nested dictionary where the outer keys are access rates, inner keys are
-        populations, and values are the parameters (e.g., from `scipy.optimize.curve_fit`)
-        of the fitted log-sigmoid model for that combination.
+    numpy.ndarray
+        Fitted parameter vector ``[a, b, c]`` for the sigmoid function. If the
+        fit fails, an attempt to return a fitted linear fallback or an array of
+        NaNs may be used depending on internal error handling.
     """
     # X = beta"].values
     # y = group["pfpr2to10"].values
@@ -483,25 +545,31 @@ def create_beta_map(
     access_rate_raster: npt.NDArray,
     prevalence_raster: npt.NDArray,
 ) -> npt.NDArray:
-    """
-    Create a beta map based on the population, access rate and prevalence rasters.
+    """Generate a raster of `beta` values from fitted models and inputs.
+
+    For each cell in ``population_raster`` the function selects the nearest
+    population key from ``models_map`` and uses the access-rate cell and the
+    observed pfpr (from ``prevalence_raster``) to invert the fitted sigmoid
+    and compute an estimated ``beta``. Cells with NaN inputs are preserved as
+    NaN in the output.
 
     Parameters
     ----------
-    models_map : dict[float, dict[int, list[float]]]
-        Nested dictionary containing sigmoid model parameters for each
-        access rate and population combination.
-    population_raster : np.typing.NDArray
-        Population raster.
-    access_rate_raster : np.typing.NDArray
-        Access rate raster.
-    prevalence_raster : np.typing.NDArray
-        Prevalence raster.
+    models_map
+        Nested mapping: access_rate -> population_bin -> fitted coefficients
+        (``[a, b, c]``) returned by the fitting routines.
+    population_raster
+        2-D array of per-cell population values.
+    access_rate_raster
+        2-D array of per-cell treatment access rates (floats).
+    prevalence_raster
+        2-D array of per-cell PfPR (fractions 0..1) used to infer beta.
 
     Returns
     -------
-    np.typing.NDArray
-        Beta map.
+    numpy.ndarray
+        2-D array shaped like ``population_raster`` containing estimated
+        ``beta`` values on a per-cell basis.
     """
     # Create a beta map
     beta_map = np.zeros_like(population_raster)
@@ -518,25 +586,35 @@ def create_beta_map(
 def get_beta(
     models_map: dict[float, dict[int, list[float]]], access_rate: float, population: int, pfpr: float
 ) -> float:
-    """
-    Get the beta value for a given access rate, population, and pfpr target.
+    """Get the beta value for a given access rate, population, and pfpr target.
+
+    Retrieve an estimated ``beta`` for a single cell using the fitted model
+    coefficients in ``models_map``.
+
+    Behavior notes
+    --------------
+    - If ``population <= 10`` the function returns ``0.0`` (too small to model).
+    - If the access rate or population key is missing in ``models_map`` the
+      function logs an error and returns ``np.nan``.
+    - The inversion uses the closed-form inverse of the sigmoid on the log10
+      scale and returns ``10**beta_log``.
 
     Parameters
     ----------
-    models_map : dict[float, dict[int, list[float]]]
-        Nested dictionary containing sigmoid model parameters for each
-        access rate and population combination.
-    access_rate : float
-        Treatment access rate.
-    population : int
-        Population size.
-    pfpr : float
-        Observed PfPR value.
+    models_map
+        Mapping access_rate -> population_bin -> coefficients ``[a, b, c]``.
+    access_rate
+        Treatment access rate (float) used to select the correct model.
+    population
+        Population integer value used to select the nearest population bin.
+    pfpr
+        Observed PfPR (fraction 0..1) to invert into a beta value.
 
     Returns
     -------
     float
-        Estimated beta value.
+        Estimated beta (positive float) or ``np.nan``/``0.0`` depending on
+        the error case or small-population rule.
     """
     if np.isnan(access_rate) or np.isnan(population):
         return np.nan
@@ -584,6 +662,29 @@ def get_beta(
 
 
 def predicted_prevalence(models_map, population_raster, treatment, beta_map):
+    """Compute predicted PfPR map from a beta map and fitted models.
+
+    This function applies the forward sigmoid (using `sigmoid`) to the log10
+    of per-cell beta values to produce a predicted PfPR map. It mirrors the
+    logic of `create_beta_map` but performs the forward prediction step.
+
+    Parameters
+    ----------
+    models_map
+        Nested mapping of fitted model coefficients per access rate and
+        population bin.
+    population_raster
+        2-D population array.
+    treatment
+        2-D treatment access-rate raster array.
+    beta_map
+        2-D beta raster (same shape as `population_raster`).
+
+    Returns
+    -------
+    numpy.ndarray
+        2-D array of predicted PfPR (fractions 0..1).
+    """
     # Create a PfPR map
     pfpr_map = np.zeros_like(population_raster)
     # Naive implementation of PfPR map
@@ -866,35 +967,6 @@ def summarize_calibration_results(country: CountryParams, data_path: Path | str 
         summary.loc[file_name, "access_rate"] = access
         summary.loc[file_name, "beta"] = beta
         summary.loc[file_name, "iteration"] = int(iteration)
-
-    # for pop in POPULATION_BINS:
-    #     for access in access_rates:
-    #         for beta in BETAS:
-    #             for i in range(1, repetitions + 1):
-    #                 filename = f"cal_{pop}_{access}_{beta}_monthly_data_{i}"
-    #                 file = os.path.join(base_file_path, f"{filename}.db")
-    #                 try:
-    #                     data = analysis.get_table(file, "monthlysitedata")
-    #                 except FileNotFoundError as _:
-    #                     filename = f"cal_{pop}_{access}_{int(beta)}_monthly_data_{i}"  # TODO: #15 fix the masim file output to ensure consistent int/float digits
-    #                     file = os.path.join(base_file_path, f"{filename}.db")
-    #                     try:
-    #                         data = analysis.get_table(file, "monthlysitedata")
-    #                     except FileNotFoundError as e:
-    #                         logging.warning(f"File not found: {e}")
-    #                         continue
-    #                 data = data.loc[
-    #                     data["monthlydataid"].between(comparison_start_month, comparison_end_month, inclusive="left")
-    #                 ]
-    #                 summary.loc[filename] = data[["pfprunder5", "pfpr2to10", "pfprall"]].mean()
-    #                 # mean_pop = data["population"].mean()
-    #                 # clinincal_episodes = data["clinicalepisodes"].sum()
-    #                 # pfpr = clinincal_episodes / mean_pop
-    #                 summary.loc[filename, "population"] = pop
-    #                 summary.loc[filename, "access_rate"] = access
-    #                 summary.loc[filename, "beta"] = beta
-    #                 summary.loc[filename, "iteration"] = int(i)
-    #                 # summary.loc[filename, "pfpr"] = pfpr
 
     summary["pfprunder5"] = summary["pfprunder5"].div(100)
     summary["pfpr2to10"] = summary["pfpr2to10"].div(100)
