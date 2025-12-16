@@ -211,29 +211,21 @@ Benefits:
 - Easier to answer "what code + data produced this CSV/plot?".
 - Enables automated comparisons across runs.
 
-### 3.2. Lightweight run registry
+### 3.2. YAML 'DB' parameters to data classes
 
-If you need to compare many experiments over time:
-- Start with a simple SQLite table or CSV under `log/` that appends a
-  row each time `calibrate` or `validate` runs.
-- Columns can mirror the metadata above.
-
-Longer-term options (only if needed):
-- Integrate a dedicated experiment tracker (MLflow, Sacred, W&B) if the
-  group prefers, but the simple CSV/SQLite approach is likely enough.
-
-### 3.3. Parameter sweeps as first-class objects
-
-Current workflows already sweep over beta, access, population bins.
-To make this easier to extend:
-- Introduce a small `ParameterGrid`/`Scenario` abstraction that captures
-  the set of varying knobs.
-- Generate both configs and commands from this abstraction rather than
-  ad-hoc loops in notebooks.
-
+Suggested path:
+- Introduce data classes (using `dataclasses` or `pydantic`) to model
+  key configuration concepts such as:
+  - Drug definitions (from `DRUG_DB` YAML).
+  - Genotype properties (from `GENOTYPE_INFO` YAML).
+- Add helpers to load these from YAML files into typed objects.
+- Update `configure.py` to use these data classes internally rather
+  than raw dicts where possible.
 Benefits:
-- Easier to extend to new axes (e.g. treatment coverage scenarios,
-  genotype assumptions) without rewriting a lot of glue code.
+- Stronger validation of configuration inputs.
+- Better type hints and IDE support when working with these concepts.
+- Easier to extend with new fields in the future.
+- Clearer documentation of what each config field means.
 
 ---
 
@@ -264,14 +256,6 @@ Benefits:
 - Catches regressions in config generation and command building early.
 - Gives confidence to refactor internals (e.g. data classes for
   `DRUG_DB`, `GENOTYPE_INFO`).
-
-### 4.3. Internal refactors (gradual)
-
-- Migrate large configuration dicts in `configure.py` toward
-  dataclasses or pydantic models for better validation and type hints.
-- Consider splitting `configure.py` into logical modules (e.g.
-  `genotype_db`, `drug_db`, `therapy_db`, `raster_db`) to keep files
-  manageable without changing the public API.
 
 ---
 
