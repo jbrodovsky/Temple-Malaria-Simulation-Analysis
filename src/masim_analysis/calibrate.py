@@ -169,6 +169,15 @@ def write_pixel_data_files(raster_db: dict, population: int):
     with open(raster_db["district_raster"], "w") as file:
         file.write(f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n1")
 
+    with open(raster_db["pr_treatment_under5"], "w") as file:
+        file.write(
+            f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n0.0"
+        )
+    with open(raster_db["pr_treatment_over5"], "w") as file:
+        file.write(
+            f"ncols 1\nnrows 1\nxllcorner 0\nyllcorner 0\ncellsize 5\nNODATA_value {configure.NODATA_VALUE}\n0.0"
+        )
+
 
 def generate_calibration_commands(
     country: CountryParams, access_rates: list[float], repetitions: int = 20, output_directory: Path = Path("output")
